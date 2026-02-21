@@ -313,6 +313,20 @@ async function handleRequest(req, res) {
   }
 }
 
+// --- Startup: check research index freshness ---
+
+(function checkIndex() {
+  try {
+    const index = researchIndex.load();
+    if (index.needsRebuild) {
+      console.log('[researchlab] research index has stale entries (missing searchTerms), rebuilding...');
+      researchIndex.rebuild();
+    }
+  } catch (e) {
+    console.error('[researchlab] index startup check failed:', e.message);
+  }
+})();
+
 // --- Start ---
 
 const server = http.createServer(handleRequest);
