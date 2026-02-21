@@ -16,7 +16,7 @@ Starts on port 3700 (override with `RESEARCHLAB_PORT` env var).
 
 - `server.js` -- HTTP server, routes, SSE
 - `lib/project-store.js` -- file-based persistence in ~/.researchlab/projects/
-- `lib/pipeline.js` -- research pipeline (plan -> research -> synthesis)
+- `lib/pipeline.js` -- research pipeline (plan -> research -> verify -> synthesis)
 - `lib/strategos.js` -- Strategos API client (configurable via `STRATEGOS_URL`)
 - `lib/sources.js` -- data source registry (~/.researchlab/sources.json)
 - `lib/research-index.js` -- completed research index (~/.researchlab/index.json)
@@ -55,7 +55,9 @@ Projects stored as JSON in `~/.researchlab/projects/{id}/`. Each project dir may
 - `project.json` -- project metadata
 - `plan.json` -- research plan (sub-questions)
 - `research/worker-N.json` -- per-worker research output
-- `graph.json` -- final knowledge graph
+- `verification/claims-audit.json` -- claim verification audit
+- `verification/gaps-contradictions.json` -- gaps and contradictions analysis
+- `graph.json` -- final knowledge graph (with confidence levels)
 
 ## SSE Events
 
