@@ -69,12 +69,40 @@ check_prereqs() {
         exit 1
     fi
 
-    # Check Strategos
+    # Check Strategos (required)
     local strategos_url="${STRATEGOS_URL:-http://localhost:38007}"
-    if ! curl -s "$strategos_url/api/health" > /dev/null 2>&1; then
-        echo -e "${YELLOW}Warning: Strategos not reachable at $strategos_url${NC}"
-        echo -e "${YELLOW}Research pipelines will not run until Strategos is started.${NC}"
-        echo -e "${YELLOW}See: https://github.com/drewrad8/strategos${NC}"
+    local strategos_found=false
+
+    if [ -d "$HOME/.strategos" ]; then
+        strategos_found=true
+    elif command -v strategos &> /dev/null; then
+        strategos_found=true
+    elif curl -s --connect-timeout 3 "$strategos_url/api/health" > /dev/null 2>&1; then
+        strategos_found=true
+    fi
+
+    if [ "$strategos_found" = false ]; then
+        echo -e "${YELLOW}Strategos is required but not found.${NC}"
+        echo ""
+        read -rp "Install Strategos now? [Y/n] " answer
+        case "${answer:-Y}" in
+            [Yy]*)
+                local sibling_installer="$INSTALL_DIR/../strategos-release/install.sh"
+                if [ -f "$sibling_installer" ]; then
+                    bash "$sibling_installer"
+                else
+                    local tmpdir
+                    tmpdir=$(mktemp -d)
+                    git clone https://github.com/drewrad8/strategos "$tmpdir/strategos"
+                    bash "$tmpdir/strategos/install.sh"
+                    rm -rf "$tmpdir"
+                fi
+                ;;
+            *)
+                echo -e "${RED}Strategos is required. Install it from: https://github.com/drewrad8/strategos${NC}"
+                exit 1
+                ;;
+        esac
     fi
 }
 

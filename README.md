@@ -9,15 +9,27 @@ explorer.
 ```
 git clone https://github.com/drewrad8/researchlab.git
 cd researchlab
-npm start
+./install.sh
+```
+
+The installer checks prerequisites (Node.js 20+, tmux, curl), detects or offers to install
+[Strategos](https://github.com/drewrad8/strategos), and sets up the data directory.
+
+Then start the server:
+
+```
+bin/researchlab start
 ```
 
 Open http://localhost:3700
 
+**Manual setup** (if you already have Strategos running): `npm start`
+
 ## Requirements
 
 - Node.js 20+
-- [Strategos](https://github.com/drewrad8/strategos) running
+- [Strategos](https://github.com/drewrad8/strategos)
+- tmux
 - Claude Code CLI (`npm i -g @anthropic-ai/claude-code`)
 
 ## How it works
