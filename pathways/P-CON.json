@@ -1,0 +1,85 @@
+{
+  "id": "P-CON",
+  "name": "Contrarian Analysis",
+  "version": "1.0.0",
+  "description": "Mandatory contrarian analysis triggered when consensus exceeds 80% across accumulated evidence for any key claim. Based on Israeli 10th Man doctrine and CIA Team A/Team B analysis. Strong consensus can mask groupthink or systematic bias.",
+  "triggerEvidenceTypes": [],
+  "trigger": {
+    "evidenceType": "SCI",
+    "conditions": [
+      {
+        "field": "consensusLevel",
+        "operator": "greaterThan",
+        "value": 0.80
+      }
+    ]
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Construct Strongest Counter-Argument",
+      "workerTemplate": "review",
+      "task": {
+        "purpose": "Construct the strongest possible case against the consensus position on \"{evidence.description}\" (consensus level: {evidence.consensusLevel}). When consensus exceeds 80%, the 10th Man doctrine requires a mandatory devil's advocate analysis to guard against groupthink.",
+        "keyTasks": [
+          "Given the consensus position, construct the strongest possible case for the opposite conclusion.",
+          "Identify the evidence that most challenges the consensus.",
+          "Identify what would have to be true for the consensus to be wrong.",
+          "Check if any credible minority position exists among experts."
+        ],
+        "endState": "Strongest counter-argument constructed: challenging evidence identified, conditions for consensus failure specified, minority positions cataloged."
+      },
+      "requiredOutputs": [
+        { "field": "counterArgument", "type": "string", "description": "Strongest case for the opposite conclusion" },
+        { "field": "challengingEvidence", "type": "array", "description": "Evidence that challenges the consensus" },
+        { "field": "whatWouldHaveToBeTrue", "type": "array", "description": "Conditions under which consensus would be wrong" },
+        { "field": "minorityPosition", "type": "string", "description": "Description of credible minority position if any" },
+        { "field": "challengingEvidenceStrength", "type": "string", "description": "Strength of challenging evidence: substantial, moderate, weak" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "challengingEvidenceStrength", "operator": "equals", "value": "substantial" },
+          "nextLevel": 2,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "challengingEvidenceStrength", "operator": "equals", "value": "moderate" },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "challengingEvidenceStrength", "operator": "equals", "value": "weak" },
+          "nextLevel": -1,
+          "priority": "low"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Evaluate the Contrarian Case",
+      "workerTemplate": "review",
+      "task": {
+        "purpose": "Apply rigorous evidence evaluation to the contrarian case against \"{evidence.description}\". The contrarian position deserves the same quality of analysis as the consensus — suppression of dissent for non-scientific reasons is itself a finding.",
+        "keyTasks": [
+          "Apply the same rigorous evidence evaluation to the contrarian evidence (use appropriate pathway assessment criteria).",
+          "Determine if the contrarian position has been suppressed, underfunded, or marginalized for non-scientific reasons.",
+          "If the contrarian position is credible, determine whether it should lower the confidence of the consensus claim or be presented as an alternative interpretation.",
+          "Produce a final recommendation on whether and how to adjust consensus confidence."
+        ],
+        "endState": "Contrarian case evaluated: evidence quality assessed, suppression checked, and adjustment recommendation produced."
+      },
+      "requiredOutputs": [
+        { "field": "contrarianEvidenceQuality", "type": "string", "description": "Quality of contrarian evidence: high, moderate, low" },
+        { "field": "suppressionEvidence", "type": "boolean", "description": "Whether evidence of suppression was found" },
+        { "field": "adjustmentRecommendation", "type": "string", "description": "Recommendation: no-adjustment, downgrade-one-level, present-alternative, reject-consensus" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 1,
+    "requiredLevels": 1,
+    "timeoutMinutes": 30
+  }
+}

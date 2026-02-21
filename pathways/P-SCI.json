@@ -1,0 +1,195 @@
+{
+  "id": "P-SCI",
+  "name": "Scientific Evidence Provenance",
+  "version": "1.0.0",
+  "description": "Investigates scientific evidence using GRADE framework logic and Cochrane RoB 2 bias assessment. Study type determines the assessment pathway. Funding investigation is mandatory.",
+  "triggerEvidenceTypes": ["SCI"],
+  "trigger": {
+    "evidenceType": "SCI"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Locate Original Study",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Find the actual published paper for evidence \"{evidence.description}\" and extract core metadata. Without locating the original study, all downstream assessment is based on potentially distorted secondary reporting.",
+        "keyTasks": [
+          "Find the actual published paper. Extract: study type (RCT, cohort, case-control, cross-sectional, case report, meta-analysis, systematic review), sample size, journal name, publication year, DOI/PMID.",
+          "Verify the paper has not been retracted by checking Retraction Watch and PubMed retraction notices.",
+          "If a DOI or PMID is available, confirm it resolves to the correct paper.",
+          "Record the journal's impact factor and check if it appears on predatory journal lists."
+        ],
+        "endState": "Original study located with study type classified, core metadata extracted (DOI, PMID, journal, sample size, impact factor), and retraction status confirmed."
+      },
+      "requiredOutputs": [
+        { "field": "studyType", "type": "string", "description": "Type of study: rct, crossover-rct, cohort, case-control, cross-sectional, case-report, case-series, animal, in-vitro, meta-analysis, systematic-review" },
+        { "field": "sampleSize", "type": "number", "description": "Total sample size (N)" },
+        { "field": "journalName", "type": "string", "description": "Journal of publication" },
+        { "field": "impactFactor", "type": "number", "description": "Journal impact factor" },
+        { "field": "doi", "type": "string", "description": "Digital Object Identifier" },
+        { "field": "pmid", "type": "string", "description": "PubMed ID" },
+        { "field": "retracted", "type": "boolean", "description": "Whether the study has been retracted" },
+        { "field": "corrected", "type": "boolean", "description": "Whether corrections/errata have been issued" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "retracted", "operator": "equals", "value": true },
+          "nextLevel": -1,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "studyType", "operator": "in", "value": ["rct", "crossover-rct"] },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "studyType", "operator": "in", "value": ["cohort", "case-control", "cross-sectional"] },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "studyType", "operator": "in", "value": ["meta-analysis", "systematic-review"] },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "studyType", "operator": "in", "value": ["case-report", "case-series", "animal", "in-vitro"] },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ],
+      "parallel": true
+    },
+    {
+      "depth": 2,
+      "name": "Bias Assessment",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Assess bias in \"{parent.findings.studyTitle}\" ({parent.doi}). The study type is \"{parent.studyType}\" which determines the assessment framework: RoB 2 for RCTs, ROBINS-I for observational studies, AMSTAR-2 for reviews, or low-hierarchy assessment for case reports/animal/in-vitro.",
+        "keyTasks": [
+          "For RCTs: Assess five RoB 2 bias domains — (1) randomization process, (2) deviations from intended intervention, (3) missing outcome data, (4) outcome measurement, (5) selective reporting. Check trial registration against published outcomes.",
+          "For observational studies: Assess seven ROBINS-I bias domains — (1) confounding, (2) participant selection, (3) intervention classification, (4) deviations, (5) missing data, (6) outcome measurement, (7) selective reporting. Identify critical confounders.",
+          "For systematic reviews/meta-analyses: Assess review methodology — search comprehensiveness, inclusion criteria appropriateness, bias assessment performed, heterogeneity addressed. Apply AMSTAR-2 if applicable.",
+          "For case reports/animal/in-vitro: Document inherent limitations (N=1, no control, translation uncertainty). Search for higher-quality evidence on the same question."
+        ],
+        "endState": "Bias assessment completed with per-domain ratings and overall bias classification. For low-hierarchy evidence, higher-quality evidence search completed."
+      },
+      "requiredOutputs": [
+        { "field": "biasRating", "type": "object", "description": "Per-domain bias ratings (low/some-concerns/high)" },
+        { "field": "overallBias", "type": "string", "description": "Overall bias rating: low, some-concerns, high" },
+        { "field": "assessmentFramework", "type": "string", "description": "Framework used: rob2, robins-i, amstar2, low-hierarchy" },
+        { "field": "registrationMatch", "type": "boolean", "description": "Whether trial registration matches published outcomes (RCTs)" },
+        { "field": "blindingAdequate", "type": "boolean", "description": "Whether blinding was adequate (RCTs)" },
+        { "field": "confoundersControlled", "type": "boolean", "description": "Whether critical confounders were controlled (observational)" },
+        { "field": "residualConfounding", "type": "string", "description": "Description of residual confounding (observational)" },
+        { "field": "searchComprehensive", "type": "boolean", "description": "Whether the search was comprehensive (reviews)" },
+        { "field": "heterogeneityAddressed", "type": "boolean", "description": "Whether heterogeneity was addressed (reviews)" },
+        { "field": "overallQuality", "type": "string", "description": "Overall quality for reviews: high, moderate, low, critically-low" },
+        { "field": "limitations", "type": "string", "description": "Inherent limitations (low-hierarchy)" },
+        { "field": "higherEvidenceExists", "type": "boolean", "description": "Whether higher-quality evidence exists on the same question" },
+        { "field": "higherEvidenceConclusion", "type": "string", "description": "Conclusion from higher-quality evidence if found" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "overallBias", "operator": "equals", "value": "high" },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "overallBias", "operator": "in", "value": ["low", "some-concerns"] },
+          "nextLevel": 3,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "overallQuality", "operator": "in", "value": ["high", "moderate"] },
+          "nextLevel": 3,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "overallQuality", "operator": "in", "value": ["low", "critically-low"] },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "higherEvidenceExists", "operator": "equals", "value": false },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Funding and Conflict-of-Interest Investigation",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Investigate who funded \"{parent.findings.studyTitle}\" ({parent.doi}) and whether the funding source has financial interests that could bias results. Industry-funded studies show a systematic pattern of favorable outcomes per meta-epidemiological evidence.",
+        "keyTasks": [
+          "Identify who funded the study from the paper's disclosure section. If no disclosure section exists, search for the corresponding author's grants and industry relationships.",
+          "For each funder: determine if they are independent (government grant agency, private foundation with no commercial interest), industry (company that sells a product related to the study), or undisclosed.",
+          "For industry funders: search for other studies they have funded. Check if there is a pattern of results favoring their products.",
+          "Check author financial disclosures. Search Open Payments database for U.S.-based authors. For non-U.S. authors, check the journal's conflict-of-interest disclosures."
+        ],
+        "endState": "Funding source identified and classified, author conflicts documented, and funding bias pattern assessed."
+      },
+      "requiredOutputs": [
+        { "field": "fundingSource", "type": "string", "description": "Who funded the study" },
+        { "field": "funderType", "type": "string", "description": "Funder classification: independent, industry, government, undisclosed" },
+        { "field": "conflictsFound", "type": "boolean", "description": "Whether financial conflicts of interest were found" },
+        { "field": "authorDisclosures", "type": "string", "description": "Summary of author disclosures" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "funderType", "operator": "equals", "value": "industry" },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "funderType", "operator": "equals", "value": "undisclosed" },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "conflictsFound", "operator": "equals", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "funderType", "operator": "in", "value": ["independent", "government"] },
+          "nextLevel": 4,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 4,
+      "name": "Replication and Contradictory Evidence",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Determine whether \"{parent.findings.studyTitle}\" has been replicated, contradicted, or superseded. A single study — regardless of quality — provides limited confidence without replication.",
+        "keyTasks": [
+          "Search for replication studies that attempted to reproduce the findings.",
+          "Search for contradicting evidence — studies that reached opposite conclusions on the same question.",
+          "Search for meta-analyses that include this study. Note the meta-analytic conclusion.",
+          "Check if the findings have been superseded by newer research."
+        ],
+        "endState": "Replication landscape mapped: replications found/not found, contradictory evidence cataloged, meta-analytic context established, and supersession status determined."
+      },
+      "requiredOutputs": [
+        { "field": "replicationExists", "type": "boolean", "description": "Whether replication studies exist" },
+        { "field": "replicationConfirms", "type": "boolean", "description": "Whether replications confirm the original findings" },
+        { "field": "contradictoryEvidence", "type": "array", "description": "List of contradicting studies/evidence" },
+        { "field": "metaAnalysisExists", "type": "boolean", "description": "Whether a meta-analysis including this study exists" },
+        { "field": "metaAnalysisConclusion", "type": "string", "description": "Conclusion of the meta-analysis" },
+        { "field": "superseded", "type": "boolean", "description": "Whether findings have been superseded by newer research" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 3,
+    "requiredLevels": 3,
+    "timeoutMinutes": 60
+  }
+}

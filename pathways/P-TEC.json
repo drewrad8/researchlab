@@ -1,0 +1,156 @@
+{
+  "id": "P-TEC",
+  "name": "Technical Claim Verification",
+  "version": "1.0.0",
+  "description": "Verifies technical and product claims against actual specifications, independent testing, regulatory compliance, and comparative analysis. Based on ProPublica's data-driven verification and FDA/FTC enforcement patterns.",
+  "triggerEvidenceTypes": ["TEC"],
+  "trigger": {
+    "evidenceType": "TEC"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Verify the Claimed Specification",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Verify the technical/product claim in \"{evidence.description}\" against actual specifications. Marketing claims frequently diverge from actual product specs — the gap between claim and reality must be measured.",
+        "keyTasks": [
+          "Find the product's actual specification/ingredient list from official sources (not marketing).",
+          "Compare marketing claims against actual specs.",
+          "Check for certifications claimed vs. certifications actually held.",
+          "Note any discrepancies between claimed and actual specifications."
+        ],
+        "endState": "Actual specs located and compared to claims: discrepancies documented, certifications verified or flagged."
+      },
+      "requiredOutputs": [
+        { "field": "actualSpecs", "type": "object", "description": "Actual product specifications" },
+        { "field": "claimedSpecs", "type": "object", "description": "Claimed product specifications" },
+        { "field": "discrepancies", "type": "array", "description": "Discrepancies between claimed and actual" },
+        { "field": "certificationsVerified", "type": "boolean", "description": "Whether claimed certifications were verified" },
+        { "field": "ingredientList", "type": "array", "description": "Actual ingredient/component list" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "discrepancies", "operator": "exists", "value": true },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "certificationsVerified", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "certificationsVerified", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Independent Testing and Review",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Find independent testing and third-party evaluations of the product/technology in \"{evidence.description}\". Manufacturer claims are inherently biased — independent verification is essential.",
+        "keyTasks": [
+          "Find independent lab tests or third-party evaluations.",
+          "Search consumer testing organizations (Consumer Reports, Wirecutter, independent labs).",
+          "Check if any regulatory body has tested or evaluated the product.",
+          "Compare independent test results to manufacturer claims."
+        ],
+        "endState": "Independent testing landscape mapped: lab tests found, consumer testing results collected, regulatory evaluations cataloged."
+      },
+      "requiredOutputs": [
+        { "field": "independentTests", "type": "array", "description": "Independent test results found" },
+        { "field": "consumerTestResults", "type": "array", "description": "Consumer testing organization results" },
+        { "field": "regulatoryEvaluation", "type": "array", "description": "Regulatory evaluations found" },
+        { "field": "testResults", "type": "object", "description": "Summary of test results vs. claims" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "independentTests", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "independentTests", "operator": "notExists", "value": null },
+          "nextLevel": 3,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Regulatory and Safety Check",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Check the regulatory and safety record for the product/technology in \"{evidence.description}\". Regulatory actions, recalls, and adverse events are high-signal indicators of claim reliability.",
+        "keyTasks": [
+          "Search for FDA warning letters, recalls, safety notices.",
+          "Search for FTC enforcement actions (false advertising).",
+          "Search for international equivalent actions (EU RAPEX, etc.).",
+          "Check adverse event reporting databases (FAERS, CPSC)."
+        ],
+        "endState": "Regulatory and safety record documented: warning letters, recalls, enforcement actions, and adverse events cataloged or confirmed absent."
+      },
+      "requiredOutputs": [
+        { "field": "warningLetters", "type": "array", "description": "FDA or equivalent warning letters" },
+        { "field": "recalls", "type": "array", "description": "Product recalls" },
+        { "field": "enforcementActions", "type": "array", "description": "FTC or equivalent enforcement actions" },
+        { "field": "adverseEvents", "type": "array", "description": "Reported adverse events" },
+        { "field": "safetyNotices", "type": "array", "description": "Safety notices issued" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "warningLetters", "operator": "exists", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "recalls", "operator": "exists", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "enforcementActions", "operator": "exists", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "warningLetters", "operator": "notExists", "value": null },
+          "nextLevel": 4,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 4,
+      "name": "Comparative Analysis",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Compare the product/technology in \"{evidence.description}\" against competitors on verified metrics. Comparative context reveals whether claims represent genuine differentiation or marketing hype.",
+        "keyTasks": [
+          "Compare against competing/alternative products on the same verified metrics.",
+          "Identify best-in-class products based on independent evidence, not marketing.",
+          "Produce actionable ranking if sufficient data exists.",
+          "Assess the overall data quality supporting the comparison."
+        ],
+        "endState": "Comparative analysis complete: products compared on verified metrics, best-in-class identified, data quality assessed."
+      },
+      "requiredOutputs": [
+        { "field": "competitiveComparison", "type": "array", "description": "Comparison against competing products" },
+        { "field": "bestInClass", "type": "string", "description": "Best-in-class product based on independent evidence" },
+        { "field": "rankingBasis", "type": "string", "description": "Basis for the ranking" },
+        { "field": "dataQuality", "type": "string", "description": "Quality of data supporting the comparison: high, moderate, low" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 60
+  }
+}

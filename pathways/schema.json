@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InvestigationPathway",
+  "description": "A deterministic investigation pathway triggered by evidence type",
+  "type": "object",
+  "required": ["id", "name", "version", "trigger", "levels"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^P-[A-Z]{2,4}$",
+      "description": "Pathway identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable pathway name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver for pathway definition versioning"
+    },
+    "trigger": {
+      "type": "object",
+      "required": ["evidenceType"],
+      "properties": {
+        "evidenceType": {
+          "type": "string",
+          "enum": ["SCI", "GOV", "ORG", "EXP", "STA", "FIN", "DOC", "MED", "HIS", "TES", "TEC"],
+          "description": "Primary evidence type that activates this pathway"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field", "operator", "value"],
+            "properties": {
+              "field": { "type": "string" },
+              "operator": { "enum": ["equals", "contains", "greaterThan", "lessThan", "in", "notIn"] },
+              "value": {}
+            }
+          },
+          "description": "Additional conditions beyond evidence type (e.g., source reliability below C)"
+        }
+      }
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/definitions/Level"
+      },
+      "description": "Ordered investigation levels (depth 1 to max 4)"
+    },
+    "exitCriteria": {
+      "type": "object",
+      "properties": {
+        "minimumSources": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Minimum independent sources required for pathway completion"
+        },
+        "requiredLevels": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Minimum number of levels that must complete successfully"
+        },
+        "timeoutMinutes": {
+          "type": "integer",
+          "description": "Maximum time for entire pathway"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Level": {
+      "type": "object",
+      "required": ["depth", "name", "workerTemplate", "task", "requiredOutputs"],
+      "properties": {
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Depth in the investigation tree (1 = root)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable level name"
+        },
+        "workerTemplate": {
+          "type": "string",
+          "enum": ["research", "review", "impl"],
+          "description": "Strategos worker template to use"
+        },
+        "task": {
+          "type": "object",
+          "required": ["purpose", "keyTasks", "endState"],
+          "properties": {
+            "purpose": {
+              "type": "string",
+              "description": "Commander's Intent: why this level matters (references parent evidence)"
+            },
+            "keyTasks": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Specific, verifiable tasks for the worker"
+            },
+            "endState": {
+              "type": "string",
+              "description": "Observable condition that defines success"
+            }
+          }
+        },
+        "requiredOutputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field", "type"],
+            "properties": {
+              "field": { "type": "string" },
+              "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object"] },
+              "description": { "type": "string" }
+            }
+          },
+          "description": "Structured output fields this level must produce"
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Branch"
+          },
+          "description": "Conditional branches to next level based on this level's output"
+        },
+        "parallel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this level's branches can execute in parallel"
+        }
+      }
+    },
+    "Branch": {
+      "type": "object",
+      "required": ["condition", "nextLevel"],
+      "properties": {
+        "condition": {
+          "type": "object",
+          "required": ["field", "operator", "value"],
+          "properties": {
+            "field": {
+              "type": "string",
+              "description": "Output field from current level to evaluate"
+            },
+            "operator": {
+              "type": "string",
+              "enum": ["equals", "notEquals", "contains", "greaterThan", "lessThan", "in", "exists", "notExists"]
+            },
+            "value": {
+              "description": "Value to compare against (type depends on operator)"
+            }
+          }
+        },
+        "nextLevel": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 4,
+          "description": "Which level to proceed to"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "default": "medium",
+          "description": "Investigation priority (affects resource allocation)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "id": "P-HIS",
+  "name": "Historical Claim Verification",
+  "version": "1.0.0",
+  "description": "Verifies historical claims through primary source search, cross-referencing multiple accounts, and checking for revisionism and narrative bias.",
+  "triggerEvidenceTypes": ["HIS"],
+  "trigger": {
+    "evidenceType": "HIS"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Primary Source Search",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Locate primary sources for the historical claim \"{evidence.description}\". Historical claims are only as reliable as the primary sources that underpin them — secondhand and reconstructed narratives introduce distortion.",
+        "keyTasks": [
+          "Locate the primary source(s) for the historical claim (original documents, contemporaneous accounts, archaeological evidence).",
+          "Assess the primary source's proximity to the event (eyewitness vs. secondhand vs. much later reconstruction).",
+          "Count the number of independent primary sources.",
+          "Note the type and quality of each primary source."
+        ],
+        "endState": "Primary sources located and cataloged with proximity to event assessed and independence evaluated."
+      },
+      "requiredOutputs": [
+        { "field": "primarySources", "type": "array", "description": "Primary sources found" },
+        { "field": "proximityToEvent", "type": "string", "description": "Proximity: eyewitness, secondhand, reconstruction" },
+        { "field": "sourceType", "type": "string", "description": "Type of primary source" },
+        { "field": "numberOfPrimarySources", "type": "number", "description": "Count of independent primary sources" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "numberOfPrimarySources", "operator": "equals", "value": 0 },
+          "nextLevel": -1,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "numberOfPrimarySources", "operator": "greaterThan", "value": 0 },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Cross-Reference Multiple Accounts",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Cross-reference multiple independent accounts of the events in \"{evidence.description}\". Convergence across independent accounts is the strongest signal for historical accuracy.",
+        "keyTasks": [
+          "Find additional independent accounts of the same events.",
+          "Compare accounts for convergence and divergence.",
+          "Note where accounts agree (likely factual) and disagree (possibly biased, misremembered, or propagandistic).",
+          "Assess the independence of each account."
+        ],
+        "endState": "Multiple accounts compared: convergence and divergence mapped, likely factual and likely disputed elements identified."
+      },
+      "requiredOutputs": [
+        { "field": "additionalAccounts", "type": "array", "description": "Additional independent accounts found" },
+        { "field": "convergence", "type": "array", "description": "Points of convergence across accounts" },
+        { "field": "divergence", "type": "array", "description": "Points of divergence across accounts" },
+        { "field": "likelyFactual", "type": "array", "description": "Elements likely to be factual" },
+        { "field": "likelyDisputed", "type": "array", "description": "Elements likely to be disputed" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "likelyDisputed", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "likelyFactual", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Check for Revisionism and Bias",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Check whether the historical narrative in \"{evidence.description}\" has been subject to revisionism or systematic bias. History is written by the victors — and sometimes rewritten by those with political agendas.",
+        "keyTasks": [
+          "Research whether this historical narrative has been challenged by academic historians.",
+          "Check for politically motivated revisionism.",
+          "Check for survivor bias, victor's narrative bias, or erasure of perspectives.",
+          "Find the current academic consensus if one exists."
+        ],
+        "endState": "Revisionism and bias assessment complete: challenges documented, political motivations assessed, narrative biases identified, academic consensus noted."
+      },
+      "requiredOutputs": [
+        { "field": "revisionismChallenges", "type": "array", "description": "Academic challenges to the narrative" },
+        { "field": "politicalMotivation", "type": "boolean", "description": "Whether politically motivated revisionism was found" },
+        { "field": "narrativeBias", "type": "string", "description": "Description of narrative bias detected" },
+        { "field": "academicConsensus", "type": "string", "description": "Current academic consensus if any" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

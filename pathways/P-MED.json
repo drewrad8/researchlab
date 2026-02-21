@@ -1,0 +1,102 @@
+{
+  "id": "P-MED",
+  "name": "Media Source Tracing",
+  "version": "1.0.0",
+  "description": "Traces media reports back to primary sources and assesses outlet credibility. Based on First Draft's Five Pillars of Verification and the SIFT method. Media reports are secondary sources that must be traced to primaries.",
+  "triggerEvidenceTypes": ["MED"],
+  "trigger": {
+    "evidenceType": "MED"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Trace to Primary Source",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Trace the media report \"{evidence.description}\" back to its primary source. Media reports are secondary sources — the investigation must establish what underlying evidence the report is based on.",
+        "keyTasks": [
+          "Identify what primary source(s) the media report is based on (study, document, interview, event).",
+          "Locate the primary source.",
+          "Check if the media report accurately represents the primary source.",
+          "Note any editorialization or framing."
+        ],
+        "endState": "Primary source identified and located (or confirmed unlocatable), accuracy of media representation assessed, editorialization documented."
+      },
+      "requiredOutputs": [
+        { "field": "primarySource", "type": "string", "description": "The primary source the media report is based on" },
+        { "field": "primarySourceLocated", "type": "boolean", "description": "Whether the primary source was located" },
+        { "field": "accurateRepresentation", "type": "boolean", "description": "Whether the media report accurately represents the primary source" },
+        { "field": "editorialization", "type": "string", "description": "Description of any editorialization" },
+        { "field": "framing", "type": "string", "description": "Description of the framing used" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "primarySourceLocated", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "primarySourceLocated", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Media Outlet and Journalist Assessment",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Assess the credibility of the media outlet and journalist behind \"{evidence.description}\". The messenger affects the reliability of the message — ownership, editorial stance, and track record matter.",
+        "keyTasks": [
+          "Research the media outlet: ownership, editorial stance, known biases, track record of corrections/retractions.",
+          "Research the journalist: beat, track record, awards, corrections.",
+          "Check Media Bias/Fact Check or equivalent ratings.",
+          "Note any known affiliations or conflicts of interest."
+        ],
+        "endState": "Outlet and journalist profiled: ownership traced, bias assessed, track record documented, fact-check ratings noted."
+      },
+      "requiredOutputs": [
+        { "field": "outletOwnership", "type": "string", "description": "Who owns the media outlet" },
+        { "field": "outletBias", "type": "string", "description": "Known editorial bias" },
+        { "field": "outletTrackRecord", "type": "string", "description": "Track record of corrections and retractions" },
+        { "field": "journalistTrackRecord", "type": "string", "description": "Journalist's track record" },
+        { "field": "factCheckRating", "type": "string", "description": "Media Bias/Fact Check or equivalent rating" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "outletBias", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Corroboration from Other Outlets",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Cross-reference \"{evidence.description}\" against independent reporting. Where outlets converge is likely accurate; where they diverge is likely editorialized or uncertain.",
+        "keyTasks": [
+          "Search for independent reporting on the same topic from other outlets.",
+          "Compare how different outlets present the same information.",
+          "Note where outlets converge (likely accurate) and diverge (likely editorialized or uncertain).",
+          "Assess whether the independent reports trace back to the same primary source or different ones."
+        ],
+        "endState": "Independent reporting landscape mapped: convergence points identified, divergence points documented, source independence assessed."
+      },
+      "requiredOutputs": [
+        { "field": "independentReports", "type": "array", "description": "Independent reports found on the same topic" },
+        { "field": "convergencePoints", "type": "array", "description": "Points where reports converge" },
+        { "field": "divergencePoints", "type": "array", "description": "Points where reports diverge" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 3,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

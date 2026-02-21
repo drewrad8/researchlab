@@ -1,0 +1,120 @@
+{
+  "id": "P-GOV",
+  "name": "Government Data Verification",
+  "version": "1.0.0",
+  "description": "Verifies government data through agency methodology assessment, independence checks, and cross-referencing with independent measurements. Based on intelligence community multi-source fusion principles.",
+  "triggerEvidenceTypes": ["GOV"],
+  "trigger": {
+    "evidenceType": "GOV"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Verify Agency and Methodology",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Identify the specific agency and methodology behind \"{evidence.description}\". Government data has institutional credibility but is subject to political influence and methodological limitations — understanding the methodology is the foundation for all subsequent assessment.",
+        "keyTasks": [
+          "Identify the specific agency, department, and dataset referenced in the evidence.",
+          "Find the published methodology: how data was collected, sampling approach, instruments used, collection frequency.",
+          "Check if the methodology has been peer-reviewed or independently audited.",
+          "Note the date range covered and any known data gaps or limitations."
+        ],
+        "endState": "Agency and dataset identified, methodology documented, peer-review status confirmed, and date range/gaps recorded."
+      },
+      "requiredOutputs": [
+        { "field": "agency", "type": "string", "description": "Government agency name" },
+        { "field": "dataset", "type": "string", "description": "Specific dataset name/identifier" },
+        { "field": "methodology", "type": "string", "description": "Description of data collection methodology" },
+        { "field": "peerReviewed", "type": "boolean", "description": "Whether methodology was peer-reviewed or audited" },
+        { "field": "dateRange", "type": "string", "description": "Date range of the data" },
+        { "field": "knownGaps", "type": "string", "description": "Known data gaps or limitations" },
+        { "field": "measurementMethod", "type": "string", "description": "Specific measurement method used" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "methodology", "operator": "notExists", "value": null },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "peerReviewed", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "peerReviewed", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Independence and Political Influence Check",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Determine whether {parent.agency}'s data on {parent.dataset} may have been subject to political pressure or institutional conflicts. Government data is only as reliable as the agency's independence.",
+        "keyTasks": [
+          "Research whether this agency's data or conclusions have been subject to political pressure or interference (documented cases).",
+          "Check if agency leadership during the reporting period had conflicts of interest.",
+          "Research whether the agency's methodology changed and whether changes coincided with political transitions.",
+          "Check for whistleblower reports or OIG (Office of Inspector General) investigations related to this data."
+        ],
+        "endState": "Political influence assessment completed: interference documented or absence noted, leadership conflicts checked, methodology change timeline mapped, whistleblower/OIG reports cataloged."
+      },
+      "requiredOutputs": [
+        { "field": "politicalInterference", "type": "boolean", "description": "Whether documented political interference was found" },
+        { "field": "leadershipConflicts", "type": "boolean", "description": "Whether agency leadership had relevant conflicts" },
+        { "field": "methodologyChanges", "type": "boolean", "description": "Whether methodology changed during period" },
+        { "field": "whistleblowerReports", "type": "boolean", "description": "Whether whistleblower reports were found" },
+        { "field": "oigInvestigations", "type": "boolean", "description": "Whether OIG investigations were found" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "politicalInterference", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "whistleblowerReports", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "politicalInterference", "operator": "equals", "value": false },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Cross-Reference with Independent Measurements",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Cross-reference {parent.agency}'s data against independent measurements. Multi-source convergence is the gold standard for data reliability — if independent sources agree, the data is likely sound regardless of political context.",
+        "keyTasks": [
+          "Find independent measurements of the same thing: academic studies, NGO measurements, international agency data, private sector data.",
+          "Compare values between government data and independent sources.",
+          "If discrepancies exist, research which measurement is more methodologically sound.",
+          "Document the degree of convergence or divergence across all sources."
+        ],
+        "endState": "Independent sources identified and compared. Convergence or divergence documented with assessment of which measurement is most reliable."
+      },
+      "requiredOutputs": [
+        { "field": "independentSources", "type": "array", "description": "List of independent sources found" },
+        { "field": "valuesMatch", "type": "boolean", "description": "Whether values match across sources" },
+        { "field": "discrepancies", "type": "array", "description": "List of discrepancies found" },
+        { "field": "moreReliableSource", "type": "string", "description": "Which source is more methodologically sound" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

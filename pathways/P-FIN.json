@@ -1,0 +1,157 @@
+{
+  "id": "P-FIN",
+  "name": "Financial Flow Tracing",
+  "version": "1.0.0",
+  "description": "Traces financial flows through corporate ownership, individual profiles, and motivation analysis. Based on ICIJ Panama/Pandora Papers methodology and OCCRP Laundromat investigations. Financial evidence requires recursive ownership tracing.",
+  "triggerEvidenceTypes": ["FIN"],
+  "trigger": {
+    "evidenceType": "FIN"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Identify Parties and Transaction",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Map all parties and the nature of the financial relationship in \"{evidence.description}\". Financial investigations start with identifying who is paying whom, how much, and why.",
+        "keyTasks": [
+          "Identify all parties in the financial relationship (payer, payee, intermediaries).",
+          "Determine the nature of the financial relationship (funding, payment, investment, grant, loan).",
+          "Note amounts, dates, and stated purposes.",
+          "Determine whether any party is a company or an individual for downstream tracing."
+        ],
+        "endState": "All parties identified, transaction type classified, amounts/dates/purposes documented."
+      },
+      "requiredOutputs": [
+        { "field": "parties", "type": "array", "description": "All parties in the financial relationship" },
+        { "field": "transactionType", "type": "string", "description": "Type: funding, payment, investment, grant, loan" },
+        { "field": "amounts", "type": "string", "description": "Transaction amounts" },
+        { "field": "dates", "type": "string", "description": "Transaction dates" },
+        { "field": "statedPurpose", "type": "string", "description": "Stated purpose of the transaction" },
+        { "field": "currency", "type": "string", "description": "Currency of the transaction" },
+        { "field": "hasCompanyParty", "type": "boolean", "description": "Whether any party is a company" },
+        { "field": "hasIndividualParty", "type": "boolean", "description": "Whether any party is an individual" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "hasCompanyParty", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "hasIndividualParty", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "parties", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ],
+      "parallel": true
+    },
+    {
+      "depth": 2,
+      "name": "Ownership and Profile Tracing",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Trace ownership chains and financial profiles for parties in \"{evidence.description}\". For companies: trace to ultimate beneficial owner. For individuals: map relevant financial relationships and check PEP/sanctions status.",
+        "keyTasks": [
+          "For company parties: search corporate registries (OpenCorporates, jurisdiction-specific registries). Extract officers, directors, shareholders. If owner is another company, trace one more level. Identify ultimate beneficial owner (UBO). Check for shell company indicators: nominee directors, secrecy jurisdiction, no visible operations.",
+          "For individual parties: identify other known financial relationships relevant to the investigation topic. Check for PEP (Politically Exposed Person) status. Search for sanctions.",
+          "Document the corporate structure or individual financial profile.",
+          "Flag any opacity or obstruction in the tracing process."
+        ],
+        "endState": "Ownership traced to UBO (companies) or financial profile mapped (individuals). Shell company indicators, PEP status, and sanctions checked."
+      },
+      "requiredOutputs": [
+        { "field": "corporateStructure", "type": "object", "description": "Corporate ownership structure if applicable" },
+        { "field": "ubo", "type": "string", "description": "Ultimate beneficial owner" },
+        { "field": "shellCompanyIndicators", "type": "array", "description": "Shell company indicators found" },
+        { "field": "jurisdiction", "type": "string", "description": "Jurisdiction of registration" },
+        { "field": "registrationDate", "type": "string", "description": "Date of registration" },
+        { "field": "officers", "type": "array", "description": "Officers and directors" },
+        { "field": "otherRelationships", "type": "array", "description": "Other relevant financial relationships (individuals)" },
+        { "field": "pepStatus", "type": "boolean", "description": "Whether any individual is a PEP" },
+        { "field": "sanctioned", "type": "boolean", "description": "Whether any party is sanctioned" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "shellCompanyIndicators", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "pepStatus", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "ubo", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Motivation and Interest Analysis",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Determine what financial interest each party has in the outcome being investigated. Financial relationships only matter if they create incentives that could bias outcomes.",
+        "keyTasks": [
+          "Determine what financial interest each party has in the outcome/claim being investigated.",
+          "Research whether similar financial relationships have influenced outcomes in other cases.",
+          "Check for patterns: does this funder consistently fund research that supports their commercial interests?",
+          "Assess the magnitude of financial interest relative to the party's overall finances."
+        ],
+        "endState": "Financial interests mapped to investigation outcomes. Influence patterns documented. Funding bias patterns identified or ruled out."
+      },
+      "requiredOutputs": [
+        { "field": "financialInterests", "type": "object", "description": "Financial interests per party" },
+        { "field": "influencePatterns", "type": "array", "description": "Patterns of financial influence on outcomes" },
+        { "field": "fundingBiasPattern", "type": "boolean", "description": "Whether a funding bias pattern was found" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "fundingBiasPattern", "operator": "equals", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "fundingBiasPattern", "operator": "equals", "value": false },
+          "nextLevel": 4,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 4,
+      "name": "Cross-Reference and Validate",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Cross-reference all discovered financial information against public records and regulatory disclosures. Discrepancies between disclosed and discovered relationships are high-value signals.",
+        "keyTasks": [
+          "Cross-reference the financial information against public records, tax filings, and regulatory disclosures.",
+          "Check for discrepancies between disclosed and discovered financial relationships.",
+          "Validate key financial claims through independent sources.",
+          "Document any undisclosed relationships discovered."
+        ],
+        "endState": "Financial information cross-referenced against public records. Discrepancies documented. Validation sources cataloged."
+      },
+      "requiredOutputs": [
+        { "field": "crossReferenced", "type": "boolean", "description": "Whether information was successfully cross-referenced" },
+        { "field": "discrepancies", "type": "array", "description": "Discrepancies found between disclosed and discovered info" },
+        { "field": "validationSources", "type": "array", "description": "Sources used for validation" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 60
+  }
+}

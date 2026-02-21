@@ -1,0 +1,160 @@
+{
+  "id": "P-ORG",
+  "name": "Organizational Claim Investigation",
+  "version": "1.0.0",
+  "description": "Investigates claims made by organizations (companies, NGOs, institutions) by tracing to verifiable evidence. Based on ICIJ shell-company tracing methodology and Bellingcat multi-source corroboration.",
+  "triggerEvidenceTypes": ["ORG"],
+  "trigger": {
+    "evidenceType": "ORG"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Identify the Claim and the Organization",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Extract and contextualize the specific claim from \"{evidence.description}\". Every organizational claim must be understood in the context of the organization's interests — entities rarely publicize information that damages their interests.",
+        "keyTasks": [
+          "Extract the specific claim being made.",
+          "Research the organization: type (for-profit, nonprofit, government, industry group, advocacy), founding date, leadership, stated mission.",
+          "Identify the organization's commercial or ideological interest in the claim being true.",
+          "Determine the organization's revenue source and how it relates to the claim."
+        ],
+        "endState": "Claim extracted, organization profiled (type, leadership, mission, revenue), and interest in claim documented."
+      },
+      "requiredOutputs": [
+        { "field": "claim", "type": "string", "description": "The specific claim extracted" },
+        { "field": "orgType", "type": "string", "description": "Organization type: for-profit, nonprofit, government, industry-group, advocacy" },
+        { "field": "orgAge", "type": "number", "description": "Years since founding" },
+        { "field": "leadership", "type": "string", "description": "Key leadership figures" },
+        { "field": "statedMission", "type": "string", "description": "Organization's stated mission" },
+        { "field": "interestInClaim", "type": "string", "description": "How the organization benefits from the claim being true" },
+        { "field": "revenueSource", "type": "string", "description": "Primary revenue source" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "claim", "operator": "contains", "value": "scientific" },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "claim", "operator": "contains", "value": "financial" },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "claim", "operator": "exists", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Verify Supporting Evidence",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Find and evaluate the evidence behind \"{parent.claim}\" made by the organization. Claims without verifiable evidence are unsubstantiated. Claims that exaggerate their evidence are misleading.",
+        "keyTasks": [
+          "Find the evidence the organization cites to support the claim.",
+          "If they cite a study, locate the actual study (not just the press release).",
+          "If they cite data, find the original dataset.",
+          "Check if the evidence actually supports the claim as stated, or if the claim exaggerates or misrepresents the evidence."
+        ],
+        "endState": "Supporting evidence located (or confirmed absent), and accuracy of the organization's representation assessed."
+      },
+      "requiredOutputs": [
+        { "field": "citedEvidence", "type": "array", "description": "Evidence cited by the organization" },
+        { "field": "evidenceLocated", "type": "boolean", "description": "Whether the cited evidence was found" },
+        { "field": "evidenceSupports", "type": "boolean", "description": "Whether evidence supports the claim as stated" },
+        { "field": "exaggeration", "type": "boolean", "description": "Whether the claim exaggerates the evidence" },
+        { "field": "misrepresentation", "type": "boolean", "description": "Whether the claim misrepresents the evidence" },
+        { "field": "cherryPicking", "type": "boolean", "description": "Whether favorable evidence was selectively chosen" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "evidenceLocated", "operator": "equals", "value": false },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "exaggeration", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "misrepresentation", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "evidenceSupports", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Check Regulatory and Legal History",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Investigate whether the organization behind \"{parent.claim}\" has a history of regulatory actions or legal challenges. Past enforcement actions are strong signals about organizational credibility.",
+        "keyTasks": [
+          "Search for FDA warning letters, FTC enforcement actions, or equivalent regulatory actions against this organization.",
+          "Search for lawsuits related to the claim — class actions, false advertising suits.",
+          "Check BBB complaints, consumer protection actions.",
+          "Search for recalls or corrections issued by or about the organization."
+        ],
+        "endState": "Regulatory and legal history documented: enforcement actions, lawsuits, complaints, recalls cataloged or confirmed absent."
+      },
+      "requiredOutputs": [
+        { "field": "regulatoryActions", "type": "array", "description": "List of regulatory enforcement actions" },
+        { "field": "lawsuits", "type": "array", "description": "Relevant lawsuits found" },
+        { "field": "consumerComplaints", "type": "array", "description": "Consumer complaints or BBB actions" },
+        { "field": "recalls", "type": "array", "description": "Product recalls" },
+        { "field": "corrections", "type": "array", "description": "Corrections or retractions issued" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "regulatoryActions", "operator": "exists", "value": true },
+          "nextLevel": 4,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "regulatoryActions", "operator": "notExists", "value": null },
+          "nextLevel": 4,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 4,
+      "name": "Independent Corroboration",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Seek independent corroboration or contradiction of \"{parent.claim}\". Organizational claims — even well-evidenced ones — require external validation from unaffiliated parties.",
+        "keyTasks": [
+          "Search for independent parties (unaffiliated researchers, competing organizations, consumer watchdogs) who have evaluated the same claim.",
+          "Search for investigative journalism about this organization.",
+          "Check Glassdoor, whistleblower reports, or internal leaks relevant to the claim.",
+          "Synthesize all findings into an overall corroboration assessment."
+        ],
+        "endState": "Independent corroboration landscape mapped: evaluations, investigations, and insider accounts cataloged with overall assessment."
+      },
+      "requiredOutputs": [
+        { "field": "independentEvaluations", "type": "array", "description": "Independent evaluations of the claim" },
+        { "field": "journalisticInvestigations", "type": "array", "description": "Investigative journalism about the organization" },
+        { "field": "whistleblowerAccounts", "type": "array", "description": "Whistleblower or insider reports" },
+        { "field": "overallCorroboration", "type": "string", "description": "Overall corroboration assessment: confirmed, partially-confirmed, unconfirmed, contradicted" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 3,
+    "requiredLevels": 2,
+    "timeoutMinutes": 60
+  }
+}

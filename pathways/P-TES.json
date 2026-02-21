@@ -1,0 +1,112 @@
+{
+  "id": "P-TES",
+  "name": "Testimonial Corroboration",
+  "version": "1.0.0",
+  "description": "Corroborates testimonial evidence through witness assessment, additional testimony collection, and non-testimonial evidence search. Testimonials alone cannot achieve VERIFIED status.",
+  "triggerEvidenceTypes": ["TES"],
+  "trigger": {
+    "evidenceType": "TES"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Assess the Witness",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Assess the credibility and proximity of the witness providing \"{evidence.description}\". A testimonial's value depends entirely on the witness's identity, proximity, and motivations.",
+        "keyTasks": [
+          "Verify the person's identity and claimed background.",
+          "Assess their proximity to the subject (direct experience vs. secondhand vs. hearsay).",
+          "Check for financial or ideological motivation to present a particular narrative.",
+          "Note any relationships that could bias the testimony."
+        ],
+        "endState": "Witness assessed: identity verified or flagged, proximity to subject determined, motivations and potential biases documented."
+      },
+      "requiredOutputs": [
+        { "field": "identityVerified", "type": "boolean", "description": "Whether the person's identity was verified" },
+        { "field": "proximity", "type": "string", "description": "Proximity to subject: direct, secondhand, hearsay" },
+        { "field": "motivation", "type": "string", "description": "Description of apparent motivation" },
+        { "field": "financialInterest", "type": "boolean", "description": "Whether financial interest exists" },
+        { "field": "ideologicalStance", "type": "string", "description": "Identified ideological stance if any" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "identityVerified", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "proximity", "operator": "equals", "value": "hearsay" },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "identityVerified", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Corroborate with Additional Testimonies",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Find additional independent testimonies related to \"{evidence.description}\". Multiple independent accounts converging on the same facts significantly increases reliability.",
+        "keyTasks": [
+          "Search for other testimonials from independent individuals about the same subject.",
+          "Check for patterns: do multiple independent accounts converge?",
+          "Search for contradicting testimonials.",
+          "Verify independence of additional testimonies (not coordinated or from the same source)."
+        ],
+        "endState": "Additional testimonies collected: convergence and contradictions documented, independence of sources verified."
+      },
+      "requiredOutputs": [
+        { "field": "additionalTestimonials", "type": "array", "description": "Additional testimonials found" },
+        { "field": "convergence", "type": "boolean", "description": "Whether testimonials converge" },
+        { "field": "contradictions", "type": "array", "description": "Contradicting testimonials" },
+        { "field": "independenceVerified", "type": "boolean", "description": "Whether independence of testimonies was verified" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "convergence", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "contradictions", "operator": "exists", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Corroborate with Non-Testimonial Evidence",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Find non-testimonial evidence corroborating or contradicting \"{evidence.description}\". Testimonials alone, no matter how many, cannot achieve VERIFIED status without corroborating non-testimonial evidence.",
+        "keyTasks": [
+          "Search for documentary evidence that supports or contradicts the testimonial.",
+          "Search for statistical evidence related to the claims.",
+          "Search for scientific evidence related to the claims.",
+          "Assess the overall strength of non-testimonial corroboration."
+        ],
+        "endState": "Non-testimonial corroboration search complete: documentary, scientific, and statistical evidence cataloged, overall corroboration strength assessed."
+      },
+      "requiredOutputs": [
+        { "field": "documentaryEvidence", "type": "array", "description": "Documentary evidence found" },
+        { "field": "scientificEvidence", "type": "array", "description": "Scientific evidence found" },
+        { "field": "statisticalEvidence", "type": "array", "description": "Statistical evidence found" },
+        { "field": "corroborationStrength", "type": "string", "description": "Overall corroboration strength: strong, moderate, weak, none" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

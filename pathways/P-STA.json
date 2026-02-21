@@ -1,0 +1,160 @@
+{
+  "id": "P-STA",
+  "name": "Statistical Claim Verification",
+  "version": "1.0.0",
+  "description": "Verifies statistical claims by tracing to original datasets, assessing methodology and statistical validity, contextualizing numbers, and checking replication. Based on GRADE imprecision assessment and Cochrane heterogeneity detection.",
+  "triggerEvidenceTypes": ["STA"],
+  "trigger": {
+    "evidenceType": "STA"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Locate Original Dataset",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Trace the statistical claim \"{evidence.description}\" back to its original source. Statistical claims are the most commonly misrepresented type of evidence — every number needs its full context verified.",
+        "keyTasks": [
+          "Find the original source of the number.",
+          "Trace through any citation chains (claim -> news article -> press release -> actual study).",
+          "Verify the exact number as stated (misquoting is common).",
+          "Extract the full context: sample size, confidence interval, time period, population."
+        ],
+        "endState": "Original source located, exact number verified or corrected, and full statistical context extracted (sample size, CI, time period, population)."
+      },
+      "requiredOutputs": [
+        { "field": "originalSource", "type": "string", "description": "Original source of the statistic" },
+        { "field": "numberVerified", "type": "boolean", "description": "Whether the exact number was verified" },
+        { "field": "sampleSize", "type": "number", "description": "Sample size" },
+        { "field": "confidenceInterval", "type": "string", "description": "Confidence interval if available" },
+        { "field": "timePeriod", "type": "string", "description": "Time period the statistic covers" },
+        { "field": "population", "type": "string", "description": "Population the statistic applies to" },
+        { "field": "citationChainLength", "type": "number", "description": "Number of steps in the citation chain" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "numberVerified", "operator": "equals", "value": false },
+          "nextLevel": -1,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "sampleSize", "operator": "lessThan", "value": 30 },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "confidenceInterval", "operator": "notExists", "value": null },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "numberVerified", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Methodology and Statistical Validity",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Assess the statistical methodology behind \"{parent.originalSource}\". P-hacking, cherry-picking, and inappropriate statistical methods can make meaningless data appear significant.",
+        "keyTasks": [
+          "Check for p-hacking indicators: many comparisons with few corrections, p-values clustering just below 0.05, outcomes changed from pre-registration.",
+          "Check for cherry-picking: was this one favorable result selected from many analyses?",
+          "Verify statistical methods are appropriate for the data type.",
+          "Check for Simpson's paradox, ecological fallacy, base rate neglect."
+        ],
+        "endState": "Statistical validity assessed: p-hacking risk rated, cherry-picking risk rated, method appropriateness confirmed, and common fallacies checked."
+      },
+      "requiredOutputs": [
+        { "field": "pHackingRisk", "type": "string", "description": "P-hacking risk level: low, medium, high" },
+        { "field": "cherryPickingRisk", "type": "string", "description": "Cherry-picking risk level: low, medium, high" },
+        { "field": "methodsAppropriate", "type": "boolean", "description": "Whether statistical methods are appropriate" },
+        { "field": "statisticalFallacies", "type": "array", "description": "Statistical fallacies detected" },
+        { "field": "preRegistered", "type": "boolean", "description": "Whether the study was pre-registered" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "pHackingRisk", "operator": "equals", "value": "high" },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "cherryPickingRisk", "operator": "equals", "value": "high" },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "pHackingRisk", "operator": "in", "value": ["low", "medium"] },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Contextualization and Comparison",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Put the statistical claim from \"{evidence.description}\" in proper context. Numbers without context are meaningless — a '50% increase' means very different things depending on the base rate.",
+        "keyTasks": [
+          "Find the base rate for the statistic.",
+          "Express relative risks as absolute risks.",
+          "Compare to other relevant statistics for context.",
+          "Search for meta-analyses that include this finding."
+        ],
+        "endState": "Statistic contextualized: base rate established, absolute risk computed, comparisons provided, and meta-analytic context noted."
+      },
+      "requiredOutputs": [
+        { "field": "baseRate", "type": "string", "description": "Base rate for the statistic" },
+        { "field": "absoluteRisk", "type": "string", "description": "Absolute risk (vs. relative)" },
+        { "field": "relativeRisk", "type": "string", "description": "Relative risk as stated" },
+        { "field": "contextComparison", "type": "string", "description": "Comparison to other relevant statistics" },
+        { "field": "metaAnalysisExists", "type": "boolean", "description": "Whether a meta-analysis including this finding exists" },
+        { "field": "metaAnalysisConclusion", "type": "string", "description": "Meta-analysis conclusion if available" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "metaAnalysisExists", "operator": "equals", "value": true },
+          "nextLevel": 4,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "metaAnalysisExists", "operator": "equals", "value": false },
+          "nextLevel": 4,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 4,
+      "name": "Replication and Trend",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Determine whether the statistic from \"{evidence.description}\" has been independently replicated and whether there is a temporal trend. Single measurements are unreliable — consistency across independent measurements builds confidence.",
+        "keyTasks": [
+          "Has this statistic been measured by multiple independent groups?",
+          "Is there a time trend?",
+          "Has the methodology been consistent across measurements?",
+          "Are there geographic or demographic variations that affect interpretation?"
+        ],
+        "endState": "Replication and trend analysis complete: independent measurements cataloged, time trends identified, methodology consistency assessed, and variations documented."
+      },
+      "requiredOutputs": [
+        { "field": "replicationSources", "type": "array", "description": "Independent groups that measured the same statistic" },
+        { "field": "timeTrend", "type": "string", "description": "Description of time trend if any" },
+        { "field": "methodologyConsistent", "type": "boolean", "description": "Whether methodology was consistent across measurements" },
+        { "field": "variations", "type": "array", "description": "Geographic or demographic variations" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 3,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

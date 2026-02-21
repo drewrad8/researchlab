@@ -1,0 +1,114 @@
+{
+  "id": "P-EXP",
+  "name": "Expert Credibility Assessment",
+  "version": "1.0.0",
+  "description": "Assesses expert credibility through credential verification, financial conflict investigation, and peer agreement analysis. Based on CIA source reliability assessment and GRADE's treatment of expert opinion as lowest-hierarchy evidence.",
+  "triggerEvidenceTypes": ["EXP"],
+  "trigger": {
+    "evidenceType": "EXP"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Verify Credentials",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Verify the credentials of the expert behind \"{evidence.description}\". Credentials alone are insufficient but are the necessary starting point — unverified credentials immediately undermine the evidence.",
+        "keyTasks": [
+          "Verify the person's stated credentials (degrees, positions, certifications).",
+          "Check publication record (h-index, relevant publications).",
+          "Confirm institutional affiliation.",
+          "Check if credentials are relevant to the specific claim being made."
+        ],
+        "endState": "Credentials verified or flagged as unverifiable, publication record assessed, institutional affiliation confirmed, and credential relevance to claim evaluated."
+      },
+      "requiredOutputs": [
+        { "field": "credentialsVerified", "type": "boolean", "description": "Whether stated credentials were verified" },
+        { "field": "relevantExpertise", "type": "boolean", "description": "Whether expertise is relevant to the claim" },
+        { "field": "publicationCount", "type": "number", "description": "Number of relevant publications" },
+        { "field": "hIndex", "type": "number", "description": "H-index of the expert" },
+        { "field": "institutionalAffiliation", "type": "string", "description": "Confirmed institutional affiliation" },
+        { "field": "credentialsRelevant", "type": "boolean", "description": "Whether credentials are relevant to the specific claim" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "credentialsVerified", "operator": "equals", "value": false },
+          "nextLevel": -1,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "credentialsRelevant", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "credentialsVerified", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Financial Conflicts and Funding",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Investigate financial conflicts for \"{parent.institutionalAffiliation}\" expert who claims \"{evidence.description}\". Financial relationships are the most common source of undisclosed bias in expert opinions.",
+        "keyTasks": [
+          "Check financial disclosures.",
+          "Search for consulting relationships, advisory board memberships, speaking fees from entities that benefit from the expert's position.",
+          "Check if the expert has patents, equity, or royalties related to the claim.",
+          "Search Open Payments database (for U.S. authors) or equivalent disclosure databases."
+        ],
+        "endState": "Financial conflict landscape documented: all known financial relationships cataloged, patent/equity interests identified."
+      },
+      "requiredOutputs": [
+        { "field": "financialConflicts", "type": "boolean", "description": "Whether financial conflicts were found" },
+        { "field": "consultingRelationships", "type": "array", "description": "Consulting relationships found" },
+        { "field": "patents", "type": "array", "description": "Relevant patents held" },
+        { "field": "equityInterests", "type": "array", "description": "Equity interests in relevant entities" },
+        { "field": "speakingFees", "type": "array", "description": "Speaking fees from relevant entities" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "financialConflicts", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "financialConflicts", "operator": "equals", "value": false },
+          "nextLevel": 3,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Peer Agreement and Disagreement",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Determine where this expert's position falls relative to peer consensus on the topic of \"{evidence.description}\". An expert's opinion gains or loses weight based on whether other credible experts agree.",
+        "keyTasks": [
+          "Find other experts in the same field who have commented on the same topic.",
+          "Determine if there is consensus or disagreement.",
+          "If disagreement exists, characterize the split (majority vs. minority, points of contention).",
+          "Check for formal rebuttals or letters to the editor responding to this expert's claims."
+        ],
+        "endState": "Peer landscape mapped: consensus level determined, dissenting positions characterized, formal rebuttals cataloged."
+      },
+      "requiredOutputs": [
+        { "field": "peerAgreement", "type": "string", "description": "Level of peer agreement: consensus, majority, split, minority, outlier" },
+        { "field": "dissentingExperts", "type": "array", "description": "Experts who disagree with the claim" },
+        { "field": "pointsOfContention", "type": "array", "description": "Specific points where experts disagree" },
+        { "field": "formalRebuttals", "type": "array", "description": "Formal rebuttals or responses found" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}

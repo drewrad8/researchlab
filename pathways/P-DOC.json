@@ -1,0 +1,112 @@
+{
+  "id": "P-DOC",
+  "name": "Document Authentication",
+  "version": "1.0.0",
+  "description": "Authenticates documents through provenance verification, content cross-referencing, and source motivation analysis. Based on Bellingcat digital forensics workflow and Berkeley Protocol evidence standards.",
+  "triggerEvidenceTypes": ["DOC"],
+  "trigger": {
+    "evidenceType": "DOC"
+  },
+  "maxDepth": 4,
+  "levels": [
+    {
+      "depth": 1,
+      "name": "Provenance and Authentication",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Verify the provenance and authenticity of \"{evidence.description}\". Documents need provenance verification before their content can be trusted — a forged document poisons all downstream analysis.",
+        "keyTasks": [
+          "Determine the origin of the document.",
+          "Verify formatting against known templates from the alleged source.",
+          "Check metadata (creation date, author, modification history if available).",
+          "If digital, check for signs of alteration."
+        ],
+        "endState": "Document provenance assessed: origin determined, format verified against known templates, metadata examined, and alteration signs checked."
+      },
+      "requiredOutputs": [
+        { "field": "allegedSource", "type": "string", "description": "Alleged source of the document" },
+        { "field": "provenanceVerified", "type": "boolean", "description": "Whether provenance was verified" },
+        { "field": "formatConsistent", "type": "boolean", "description": "Whether format is consistent with alleged source" },
+        { "field": "metadata", "type": "object", "description": "Document metadata (creation date, author, etc.)" },
+        { "field": "alterationSigns", "type": "boolean", "description": "Whether signs of alteration were found" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "provenanceVerified", "operator": "equals", "value": false },
+          "nextLevel": 2,
+          "priority": "high"
+        },
+        {
+          "condition": { "field": "alterationSigns", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "critical"
+        },
+        {
+          "condition": { "field": "provenanceVerified", "operator": "equals", "value": true },
+          "nextLevel": 2,
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "name": "Content Verification",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Cross-reference the content of the document from \"{parent.allegedSource}\" against independent sources. Authentic documents can still contain inaccurate information — content must be independently verified.",
+        "keyTasks": [
+          "Cross-reference specific claims in the document against independent sources.",
+          "Verify named individuals, dates, and events mentioned.",
+          "Check for internal consistency.",
+          "If the document references other documents, attempt to locate those."
+        ],
+        "endState": "Document content cross-referenced: claims verified or flagged, individuals/dates/events checked, internal consistency assessed, referenced documents traced."
+      },
+      "requiredOutputs": [
+        { "field": "claimsVerified", "type": "boolean", "description": "Whether key claims in the document were verified" },
+        { "field": "internalConsistency", "type": "boolean", "description": "Whether the document is internally consistent" },
+        { "field": "referencedDocumentsFound", "type": "boolean", "description": "Whether referenced documents were located" },
+        { "field": "crossReferenceResults", "type": "array", "description": "Results of cross-referencing specific claims" }
+      ],
+      "branches": [
+        {
+          "condition": { "field": "claimsVerified", "operator": "equals", "value": true },
+          "nextLevel": 3,
+          "priority": "medium"
+        },
+        {
+          "condition": { "field": "claimsVerified", "operator": "equals", "value": false },
+          "nextLevel": 3,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "depth": 3,
+      "name": "Source Motivation and Context",
+      "workerTemplate": "research",
+      "task": {
+        "purpose": "Assess the motivation behind the document from \"{parent.allegedSource}\". Understanding why a document exists and who benefits from its disclosure is critical for evaluating its trustworthiness.",
+        "keyTasks": [
+          "If the document is leaked: research the likely source and their motivation.",
+          "If the document is official: research the issuing body and their interests.",
+          "Assess whether the document could be a forgery, a limited hangout, or selective disclosure.",
+          "Consider what context might be missing from this document."
+        ],
+        "endState": "Source motivation assessed: forgery risk rated, selective disclosure risk rated, context evaluation completed."
+      },
+      "requiredOutputs": [
+        { "field": "sourceMotivation", "type": "string", "description": "Assessment of source's motivation" },
+        { "field": "forgeryRisk", "type": "string", "description": "Forgery risk level: low, medium, high" },
+        { "field": "selectiveDisclosureRisk", "type": "string", "description": "Selective disclosure risk: low, medium, high" },
+        { "field": "contextAssessment", "type": "string", "description": "Assessment of what context may be missing" }
+      ],
+      "branches": []
+    }
+  ],
+  "exitCriteria": {
+    "minimumSources": 2,
+    "requiredLevels": 2,
+    "timeoutMinutes": 45
+  }
+}
