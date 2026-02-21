@@ -1,0 +1,14 @@
+{
+  "_meta": { "description": "Example data source registry. Copy to ~/.researchlab/sources.json and customize." },
+  "sources": [
+    {
+      "id": "example-api",
+      "name": "Example Data API",
+      "description": "Public government data API",
+      "baseUrl": "https://api.example.gov",
+      "endpoints": { "search": "/v1/search?q=" },
+      "tags": ["example", "government", "data"],
+      "auth": "none"
+    }
+  ]
+}

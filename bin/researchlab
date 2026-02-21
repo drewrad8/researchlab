@@ -1,0 +1,211 @@
+#!/bin/bash
+#
+# Research Lab - CLI wrapper
+#
+# Usage:
+#   researchlab start    - Start the server
+#   researchlab stop     - Stop the server
+#   researchlab status   - Show server status
+#   researchlab logs     - Tail the server logs
+#   researchlab version  - Show version
+
+set -e
+
+# Determine installation directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Configuration
+RESEARCHLAB_PORT="${RESEARCHLAB_PORT:-3700}"
+RESEARCHLAB_DATA_DIR="${RESEARCHLAB_DATA_DIR:-$HOME/.researchlab}"
+PID_FILE="$RESEARCHLAB_DATA_DIR/researchlab.pid"
+LOG_FILE="$RESEARCHLAB_DATA_DIR/logs/researchlab.log"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Ensure directories exist
+mkdir -p "$RESEARCHLAB_DATA_DIR/logs"
+
+version() {
+    echo "Research Lab v1.0.0"
+    echo "AI-powered research pipeline"
+}
+
+get_pid() {
+    if [ -f "$PID_FILE" ]; then
+        cat "$PID_FILE"
+    fi
+}
+
+is_running() {
+    local pid=$(get_pid)
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+check_prereqs() {
+    # Check Node.js version
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}Error: Node.js is required but not installed${NC}"
+        exit 1
+    fi
+
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 20 ]; then
+        echo -e "${RED}Error: Node.js 20+ is required (found: $(node --version))${NC}"
+        exit 1
+    fi
+
+    # Check tmux
+    if ! command -v tmux &> /dev/null; then
+        echo -e "${RED}Error: tmux is required but not installed${NC}"
+        exit 1
+    fi
+
+    # Check Strategos
+    local strategos_url="${STRATEGOS_URL:-http://localhost:38007}"
+    if ! curl -s "$strategos_url/api/health" > /dev/null 2>&1; then
+        echo -e "${YELLOW}Warning: Strategos not reachable at $strategos_url${NC}"
+        echo -e "${YELLOW}Research pipelines will not run until Strategos is started.${NC}"
+        echo -e "${YELLOW}See: https://github.com/drewrad8/strategos${NC}"
+    fi
+}
+
+start() {
+    if is_running; then
+        echo -e "${YELLOW}Research Lab is already running (PID: $(get_pid))${NC}"
+        exit 0
+    fi
+
+    echo -e "${BLUE}Starting Research Lab...${NC}"
+    check_prereqs
+
+    # Start server
+    cd "$INSTALL_DIR"
+    nohup node server.js >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+
+    # Wait a moment and check if it started
+    sleep 2
+    if is_running; then
+        echo -e "${GREEN}Research Lab started successfully${NC}"
+        echo -e "  PID: $(get_pid)"
+        echo -e "  URL: http://localhost:$RESEARCHLAB_PORT"
+        echo -e "  Logs: $LOG_FILE"
+    else
+        echo -e "${RED}Failed to start Research Lab. Check logs: $LOG_FILE${NC}"
+        exit 1
+    fi
+}
+
+stop() {
+    if ! is_running; then
+        echo -e "${YELLOW}Research Lab is not running${NC}"
+        rm -f "$PID_FILE"
+        exit 0
+    fi
+
+    local pid=$(get_pid)
+    echo -e "${BLUE}Stopping Research Lab (PID: $pid)...${NC}"
+
+    kill "$pid"
+
+    for i in {1..10}; do
+        if ! is_running; then
+            echo -e "${GREEN}Research Lab stopped${NC}"
+            rm -f "$PID_FILE"
+            exit 0
+        fi
+        sleep 1
+    done
+
+    echo -e "${YELLOW}Force stopping...${NC}"
+    kill -9 "$pid" 2>/dev/null
+    rm -f "$PID_FILE"
+    echo -e "${GREEN}Research Lab stopped${NC}"
+}
+
+status() {
+    echo "Research Lab Status"
+    echo "==================="
+
+    if is_running; then
+        echo -e "Server: ${GREEN}Running${NC} (PID: $(get_pid))"
+
+        if command -v curl &> /dev/null; then
+            local projects=$(curl -s "http://localhost:$RESEARCHLAB_PORT/api/projects" 2>/dev/null | grep -o '"id"' | wc -l)
+            echo -e "Projects: $projects"
+        fi
+    else
+        echo -e "Server: ${RED}Stopped${NC}"
+    fi
+
+    echo ""
+    echo "Configuration:"
+    echo "  Port: $RESEARCHLAB_PORT"
+    echo "  Data: $RESEARCHLAB_DATA_DIR"
+    echo "  Strategos: ${STRATEGOS_URL:-http://localhost:38007}"
+}
+
+logs() {
+    if [ -f "$LOG_FILE" ]; then
+        tail -f "$LOG_FILE"
+    else
+        echo -e "${YELLOW}No log file found at $LOG_FILE${NC}"
+    fi
+}
+
+help() {
+    echo "Research Lab - AI-powered research pipeline"
+    echo ""
+    echo "Usage: researchlab <command>"
+    echo ""
+    echo "Commands:"
+    echo "  start       Start the server"
+    echo "  stop        Stop the server"
+    echo "  status      Show server status and project count"
+    echo "  logs        Tail the server logs"
+    echo "  version     Show version information"
+    echo "  help        Show this help message"
+    echo ""
+    echo "Environment Variables:"
+    echo "  RESEARCHLAB_PORT    Server port (default: 3700)"
+    echo "  STRATEGOS_URL       Strategos API URL (default: http://localhost:38007)"
+    echo "  RESEARCHLAB_DATA_DIR  Data directory (default: ~/.researchlab)"
+    echo ""
+    echo "For more information, see: https://github.com/drewrad8/researchlab"
+}
+
+case "${1:-help}" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    logs)
+        logs
+        ;;
+    version|-v|--version)
+        version
+        ;;
+    help|-h|--help)
+        help
+        ;;
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        echo ""
+        help
+        exit 1
+        ;;
+esac

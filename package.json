@@ -1,0 +1,14 @@
+{
+  "name": "researchlab",
+  "version": "1.0.0",
+  "description": "AI-powered research pipeline that produces knowledge graphs with citations",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "bin": {
+    "researchlab": "./bin/researchlab"
+  },
+  "keywords": ["research", "knowledge-graph", "claude-code", "strategos", "ai-agents"],
+  "license": "MIT"
+}
