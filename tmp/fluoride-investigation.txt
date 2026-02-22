@@ -1,0 +1,142 @@
+FLUORIDE NODE VISIBILITY INVESTIGATION
+=======================================
+Worker: a6058a24 (REVIEW)
+Date: 2026-02-22
+
+EXECUTIVE SUMMARY
+-----------------
+The fluoride node IS present in the published graph data and has correct
+structure. The node SHOULD render in the Cytoscape.js graph. There is NO
+filtering or exclusion logic in graph.js that would hide it. The most likely
+cause is a VISUAL OCCLUSION issue within the crowded "enamel-remineralization"
+compound group, OR a deployment sync issue where the user's browser is serving
+a cached/stale version.
+
+FINDINGS
+--------
+
+1. DATA IS CORRECT (per-topic file)
+   File: /research/data/chewing-gum/graph-data.js (served at fartmart.net)
+   - Node exists at line 483: id="fluoride", type="solution", parent="enamel-remineralization"
+   - Has all required fields: id, label, type, severity, summary, parent, keyStats
+   - Structure is IDENTICAL to sibling nodes (hydroxyapatite-nano, cpp-acp-recaldent, etc.)
+   - Live URL returns HTTP 200, 120KB, correct content-type
+
+2. EDGES EXIST AND ARE VALID
+   - Edge 1: fluoride -> enamel-remineralization (type: solution, "DIRECTLY ACHIEVES")
+   - Edge 2: fluoride -> endocrine-disruption (type: causation, "MAY CAUSE")
+   - Both target nodes exist in the data
+   - Gives fluoride degree=2, which maps to ~34px node size
+
+3. NO FILTERING OR EXCLUSION LOGIC IN GRAPH.JS
+   - buildElements() (line 42-88): iterates ALL nodes and edges with no filters
+   - No type filters, no minimum edge count filters, no visibility toggles
+   - No project filtering applied by default
+   - No search filters active on page load
+   - The only filtering is user-initiated (search, project filter buttons)
+
+4. PARENT NODE EXISTS
+   - "enamel-remineralization" exists at line 69 as type="domain"
+   - It has 7 child nodes (all solution-type remineralizing agents)
+   - Cytoscape renders compound nodes as grouped rectangles
+
+5. COMPOUND GROUP CROWDING (LIKELY ROOT CAUSE)
+   The "enamel-remineralization" compound contains 7 child nodes:
+   - hydroxyapatite-nano (degree 1)
+   - fluoride (degree 2)
+   - cpp-acp-recaldent (degree 1)
+   - theobromine (degree 1)
+   - arginine-bicarbonate (degree 2)
+   - calcium-phosphate-salts (degree 1)
+   - demineralization-prevention (degree 3)
+
+   With compound padding of 20px and node sizes of ~30-36px, 7 nodes are
+   tightly packed. The cola layout may overlap nodes within the compound,
+   making some hard to see or click. The fluoride node (dark green #1a6b1a
+   on dark background #050507) with small size could be visually lost
+   behind or under a sibling.
+
+6. DEPLOYMENT STATUS
+   Local repo (fartmart): HEAD at 8bcdf99
+   Remote origin/main: at 542fd2e (3 commits behind)
+   However, the live site DOES serve the correct graph-data.js (verified via
+   curl: 200 OK, 120KB). So the data IS deployed.
+
+7. UNIFIED VS PER-TOPIC
+   - Unified page (/research/): fluoride is namespaced as "chewing-gum/fluoride"
+   - Per-topic page (/research/chewing-gum/): fluoride is just "fluoride"
+   - Both files contain the node with correct data
+
+DIAGNOSIS
+---------
+The fluoride node data is correct and present in the published graph.
+There are three possible explanations for why it's "not visible":
+
+A) COMPOUND OVERLAP (Most Likely): The enamel-remineralization compound has
+   7 children packed tightly. In the cola force-directed layout, nodes within
+   a compound can overlap. The fluoride node may be rendered underneath
+   a sibling node. Since all 7 nodes are small diamonds of similar color
+   (green), one could easily be hidden behind another.
+
+B) LAYOUT EDGE CASE: The cola layout's initial random positioning + the
+   convergence algorithm may occasionally place the fluoride node at a
+   position where it overlaps with its parent's boundary or another child.
+   Force-directed layouts are non-deterministic -- refreshing might change
+   the result.
+
+C) BROWSER CACHE: The user's browser may have a cached version of the page
+   or graph-data.js from before the chewing-gum data was fully published.
+
+RECOMMENDED FIXES
+-----------------
+
+Fix 1 (TARGETED - addresses compound crowding):
+In graph.js, increase the nodeSpacing for compound children. In the cola
+layout config (line 421), change:
+  nodeSpacing: function () { return isMobile ? 30 : 40; }
+to:
+  nodeSpacing: function (node) {
+    return node.isChild() ? (isMobile ? 40 : 55) : (isMobile ? 30 : 40);
+  }
+This gives more breathing room to nodes inside compound groups.
+
+Fix 2 (TARGETED - increase compound padding):
+In the :parent stylesheet (line 132), change:
+  'padding': '20px'
+to:
+  'padding': '30px'
+This gives the compound container more space to spread children out.
+
+Fix 3 (ALTERNATIVE - make fluoride discoverable via search):
+The search function already works -- typing "fluoride" in the search bar
+should highlight the node and center the view on it. If the node renders
+but is just hard to find visually, search is the user's immediate
+workaround.
+
+Fix 4 (NUCLEAR - disable compound grouping for crowded parents):
+If compounds with >5 children are causing issues, consider flattening:
+in buildElements(), skip setting el.data.parent when the parent has
+more than 5 children. This trades visual grouping for readability.
+
+VERIFICATION STEPS
+------------------
+1. Open https://fartmart.net/research/chewing-gum/
+2. Open browser console (F12)
+3. Run: window.researchGraph.nodes.filter(n => n.id === 'fluoride')
+   -> Should return 1 node object
+4. Run: window.graphAPI.searchNodes('fluoride')
+   -> Should highlight and center on the fluoride node
+5. If step 4 returns an empty array, the node failed to initialize
+   in Cytoscape (would indicate a Cytoscape.js bug with compound nodes)
+6. If step 4 centers on a node, it IS rendered -- just visually obscured
+
+FILES REVIEWED
+--------------
+- /home/druzy/trinity/Trinity/fartmart/research/chewing-gum/index.html
+- /home/druzy/trinity/Trinity/fartmart/research/js/graph.js (687 lines)
+- /home/druzy/trinity/Trinity/fartmart/research/js/research.js (825 lines)
+- /home/druzy/trinity/Trinity/fartmart/research/js/graph-data.js (unified)
+- /home/druzy/trinity/Trinity/fartmart/research/data/chewing-gum/graph-data.js (per-topic)
+- /home/druzy/trinity/Trinity/fartmart/research/data/findings.json
+- /home/druzy/trinity/Trinity/fartmart/scripts/build-research.js (old build)
+- /home/druzy/trinity/Trinity/fartmart/scripts/build-research-unified.js (current build)
