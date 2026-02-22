@@ -196,7 +196,10 @@ async function handleRequest(req, res) {
           sendJSON(res, 400, { error: 'missing topic' });
           return;
         }
-        const project = store.create(body.topic);
+        const investigationBudget = body.investigationBudget != null
+          ? Math.max(0, Math.min(50, parseInt(body.investigationBudget, 10) || 10))
+          : 10;
+        const project = store.create(body.topic, { investigationBudget });
         // Kick off pipeline (fire-and-forget with proper error handling)
         if (pipeline && typeof pipeline.start === 'function') {
           pipeline.start(project, (event, data) => emitEvent(project.id, event, data))

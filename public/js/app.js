@@ -145,9 +145,11 @@
     function openNewProjectModal() {
         var modal = document.getElementById('new-project-modal');
         var input = document.getElementById('input-topic');
+        var budgetInput = document.getElementById('input-investigation-budget');
         if (modal) {
             modal.classList.add('visible');
             if (input) { input.value = ''; input.focus(); }
+            if (budgetInput) { budgetInput.value = '10'; }
         }
     }
 
@@ -161,12 +163,17 @@
         var topic = input ? input.value.trim() : '';
         if (!topic) return;
 
+        var budgetInput = document.getElementById('input-investigation-budget');
+        var investigationBudget = budgetInput ? parseInt(budgetInput.value, 10) : 10;
+        if (isNaN(investigationBudget) || investigationBudget < 0) investigationBudget = 10;
+        if (investigationBudget > 50) investigationBudget = 50;
+
         closeNewProjectModal();
 
         fetch('/api/projects', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic: topic })
+            body: JSON.stringify({ topic: topic, investigationBudget: investigationBudget })
         })
             .then(function (resp) {
                 if (!resp.ok) throw new Error('Failed to create project');

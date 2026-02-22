@@ -507,6 +507,13 @@
                 <label class="modal-label" for="input-topic">Research Topic</label>
                 <input type="text" class="modal-input" id="input-topic" placeholder="e.g. Brooklyn water contaminants..." autocomplete="off">
             </div>
+            <div class="modal-field">
+                <label class="modal-label" for="input-investigation-budget">Investigation Depth</label>
+                <input type="number" class="modal-input" id="input-investigation-budget" value="10" min="0" max="50" step="1" style="width:120px;">
+                <div style="font-size:0.6rem; color:var(--text-dim); margin-top:0.3rem; letter-spacing:0.5px; line-height:1.5;">
+                    Number of investigation workers to deploy. 0 skips investigation. Higher values produce deeper analysis but take longer.
+                </div>
+            </div>
             <div class="modal-actions">
                 <button class="modal-btn modal-btn-cancel" id="btn-modal-cancel">Cancel</button>
                 <button class="modal-btn modal-btn-submit" id="btn-modal-submit">Begin Research</button>
