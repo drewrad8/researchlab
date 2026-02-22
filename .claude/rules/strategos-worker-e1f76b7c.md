@@ -1,10 +1,10 @@
 # Strategos Worker Instructions
 
-**Operational Authority:** You are authorized to run scripts, install packages, restart services, and modify code within /home/druzy/thea/. Act within your task scope. Escalate only when blocked by missing credentials, required payments, or physical access. Do NOT ask the user to do things you can do yourself.
+**Operational Authority:** You are authorized to run scripts, install packages, and modify code within /home/druzy/thea/. Act within your task scope. Escalate only when blocked by missing credentials, required payments, or physical access. Do NOT ask the user to do things you can do yourself. **NEVER restart, stop, or kill the Strategos server (pkill, kill, systemctl restart). If a code change needs a restart, report it via Ralph and let the human restart.**
 
 **Use Strategos API (`curl`) for spawning/coordination. NEVER use Claude Code's Task tool.**
 
-Worker ID: afe46dae | Label: RESEARCH: P-MED L3 "CLUSTER INVESTIGATION [undefined-MED]: 6 MED items for undefined. Items: [1] e008: No description (source: ?, info: ?); " | Role: Specialist Worker
+Worker ID: e1f76b7c | Label: RESEARCH: P-EXP L2 "CLUSTER INVESTIGATION [undefined-EXP]: 14 EXP items for undefined. Items: [1] e027: No description (source: ?, info: ?);" | Role: Specialist Worker
 Project: researchlab-release | Dir: /home/druzy/thea/researchlab-release
 
 <mission>
@@ -17,11 +17,11 @@ ON FAILURE: If a source is inaccessible after 3 attempts, note it as a gap and w
 ON DISCOVERY: If you find a bug or issue, document it in your report — do not fix it.
 </mission>
 
-## Ralph Signaling (Worker ID: afe46dae)
+## Ralph Signaling (Worker ID: e1f76b7c)
 
 Signal progress regularly so your commander knows you're alive:
 ```bash
-curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/afe46dae -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
+curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/e1f76b7c -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
 ```
 Change `status` to: **in_progress** (with progress/currentStep), **done** (with learnings/outputs/artifacts), or **blocked** (with reason).
 ALWAYS git commit before signaling done. After "done": results auto-deliver to parent, you stay alive until dismissed.
@@ -48,25 +48,25 @@ Convenience endpoints (no JSON parsing needed):
 |--------|--------|----------|
 | List workers | GET | `/api/workers` |
 | Worker status | GET | `/api/workers/{id}/status` |
-| My siblings | GET | `/api/workers/afe46dae/siblings` |
-| My children | GET | `/api/workers/afe46dae/children` |
+| My siblings | GET | `/api/workers/e1f76b7c/siblings` |
+| My children | GET | `/api/workers/e1f76b7c/children` |
 | Spawn | POST | `/api/workers/spawn-from-template` |
 | Send input | POST | `/api/workers/{id}/input` |
 | Get output | GET | `/api/workers/{id}/output?strip_ansi=true` |
 | Delete worker | DELETE | `/api/workers/{id}` |
 
-Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"afe46dae","task":{"description":"..."}}`
+Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"e1f76b7c","task":{"description":"..."}}`
 
 Templates: research, impl, test, review, fix, colonel, general (all enable ralphMode + autoAccept)
 
 Prefixes: GENERAL/COLONEL (rank) | RESEARCH/IMPL/TEST/REVIEW/FIX (role)
 
-**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "afe46dae" in ALL spawns.**
+**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "e1f76b7c" in ALL spawns.**
 
 ## Work Practices
 
 - Git commit frequently. Uncommitted work is LOST when workers are terminated.
-- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/afe46dae/siblings`
+- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/e1f76b7c/siblings`
 - If a command runs >30s, kill it and try a faster approach.
 - If blocked after 3 attempts, signal blocked via Ralph — don't spin.
 - Stay within /home/druzy/thea/. No system files.
