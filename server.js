@@ -18,6 +18,9 @@ const SUGGESTIONS_FILE = path.join(
 
 const sseClients = new Map(); // projectId -> Set<res>
 
+// --- Deploy status tracking (in-memory) ---
+const deployStatus = new Map(); // projectId -> { status, workerId, updatedAt, error? }
+
 function addSSEClient(projectId, res) {
   if (!sseClients.has(projectId)) sseClients.set(projectId, new Set());
   sseClients.get(projectId).add(res);
@@ -147,6 +150,10 @@ function matchRoute(method, url) {
       return { handler: 'sse', id };
     } else if (sub === 'resume' && method === 'POST') {
       return { handler: 'resumeProject', id };
+    } else if (sub === 'deploy-fartmart' && method === 'POST') {
+      return { handler: 'deployFartmart', id };
+    } else if (sub === 'deploy-status' && method === 'GET') {
+      return { handler: 'getDeployStatus', id };
     }
   }
 
@@ -289,6 +296,85 @@ async function handleRequest(req, res) {
         });
         res.write(`data: ${JSON.stringify({ type: 'connected', projectId: route.id })}\n\n`);
         addSSEClient(route.id, res);
+        break;
+      }
+
+      // --- Deploy to Fartmart ---
+      case 'deployFartmart': {
+        const project = store.get(route.id);
+        if (!project) { send404(res); return; }
+        if (project.status !== 'complete') {
+          sendJSON(res, 400, { error: 'Project must be complete before deploying' });
+          return;
+        }
+        // Check if already deploying
+        const existing = deployStatus.get(route.id);
+        if (existing && existing.status === 'deploying') {
+          sendJSON(res, 200, { ok: true, status: 'deploying', workerId: existing.workerId });
+          return;
+        }
+
+        const FARTMART_DIR = '/home/druzy/thea/fartmart';
+        const projectDir = path.join(
+          process.env.HOME || process.env.USERPROFILE,
+          '.researchlab', 'projects', route.id
+        );
+        const taskDesc = [
+          'Deploy a completed research project to fartmart.net.',
+          '',
+          'Steps:',
+          '1. Read the knowledge graph from: ' + path.join(projectDir, 'graph.json'),
+          '2. Read the project metadata from: ' + path.join(projectDir, 'project.json'),
+          '3. Create the fartmart research directory if it does not exist: mkdir -p ' + FARTMART_DIR + '/research/',
+          '4. Transform the graph into a standalone HTML page with:',
+          '   - The project topic as the page title',
+          '   - A summary section listing key findings (from nodes with type "finding" or high-confidence nodes)',
+          '   - A knowledge graph section listing all nodes grouped by type, with their summaries and confidence levels',
+          '   - A sources/references section listing all edges and their evidence',
+          '   - Clean, readable styling suitable for fartmart.net',
+          '5. Write the HTML file to: ' + FARTMART_DIR + '/research/' + route.id + '.html',
+          '6. Create or update an index file at ' + FARTMART_DIR + '/research/index.json that lists all deployed research pages',
+          '7. Verify the output file exists and is valid HTML',
+          '',
+          'Project ID: ' + route.id,
+          'Topic: ' + (project.topic || 'Unknown'),
+        ].join('\n');
+
+        const label = 'IMPL: deploy research "' + (project.topic || route.id).slice(0, 80) + '" to fartmart';
+
+        deployStatus.set(route.id, { status: 'deploying', workerId: null, updatedAt: new Date().toISOString() });
+
+        strategos.spawn('impl', label, __dirname, null, taskDesc)
+          .then(result => {
+            const wid = result?.id || result?.workerId || null;
+            deployStatus.set(route.id, { status: 'deploying', workerId: wid, updatedAt: new Date().toISOString() });
+            // Poll for completion
+            if (wid) {
+              strategos.waitForDone(wid, 600000)
+                .then(() => {
+                  deployStatus.set(route.id, { status: 'deployed', workerId: wid, updatedAt: new Date().toISOString() });
+                })
+                .catch(err => {
+                  deployStatus.set(route.id, { status: 'error', workerId: wid, updatedAt: new Date().toISOString(), error: err.message });
+                });
+            }
+          })
+          .catch(err => {
+            console.error('[deploy-fartmart] spawn failed:', err.message);
+            deployStatus.set(route.id, { status: 'error', workerId: null, updatedAt: new Date().toISOString(), error: err.message });
+          });
+
+        sendJSON(res, 200, { ok: true, status: 'deploying' });
+        break;
+      }
+
+      case 'getDeployStatus': {
+        const status = deployStatus.get(route.id);
+        if (!status) {
+          sendJSON(res, 200, { status: 'none' });
+          return;
+        }
+        sendJSON(res, 200, status);
         break;
       }
 

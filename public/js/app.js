@@ -89,6 +89,7 @@
             html += '<td>';
             if (p.status === 'complete') {
                 html += '<button class="project-action" data-action="graph" data-id="' + escapeAttr(p.id) + '">View Graph</button>';
+                html += '<button class="project-action deploy-btn" data-action="deploy" data-id="' + escapeAttr(p.id) + '">Deploy to Fartmart</button>';
             }
             if (p.status !== 'complete' && p.status !== 'error') {
                 html += '<button class="project-action" data-action="progress" data-id="' + escapeAttr(p.id) + '">Monitor</button>';
@@ -120,6 +121,13 @@
                 handleProjectAction(action, id);
             });
         });
+
+        // Check deploy status for complete projects
+        projects.forEach(function (p) {
+            if (p.status === 'complete') {
+                checkExistingDeployStatus(p.id);
+            }
+        });
     }
 
     function handleProjectAction(action, projectId) {
@@ -146,6 +154,8 @@
                     console.error('Resume failed:', err);
                     alert('Failed to resume project: ' + err.message);
                 });
+        } else if (action === 'deploy') {
+            deployToFartmart(projectId);
         } else if (action === 'delete') {
             if (confirm('Delete this project?')) {
                 fetch('/api/projects/' + projectId, { method: 'DELETE' })
@@ -595,6 +605,113 @@
                 }
             });
         });
+    }
+
+    // ===================================
+    // DEPLOY TO FARTMART
+    // ===================================
+
+    var deployPollTimers = {}; // projectId -> timer
+
+    function checkExistingDeployStatus(projectId) {
+        fetch('/api/projects/' + projectId + '/deploy-status')
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                var btn = document.querySelector('.deploy-btn[data-id="' + projectId + '"]');
+                if (!btn) return;
+                if (data.status === 'deployed') {
+                    btn.textContent = 'Deployed';
+                    btn.disabled = true;
+                    btn.classList.add('deployed');
+                } else if (data.status === 'deploying') {
+                    btn.textContent = 'Deploying...';
+                    btn.disabled = true;
+                    btn.classList.add('deploying');
+                    startDeployPolling(projectId);
+                } else if (data.status === 'error') {
+                    btn.textContent = 'Deploy Failed';
+                    btn.classList.add('deploy-error');
+                    btn.title = data.error || 'Unknown error';
+                }
+            })
+            .catch(function () {});
+    }
+
+    function deployToFartmart(projectId) {
+        // Update button to show deploying state
+        var btn = document.querySelector('.deploy-btn[data-id="' + projectId + '"]');
+        if (btn) {
+            btn.textContent = 'Deploying...';
+            btn.disabled = true;
+            btn.classList.add('deploying');
+        }
+
+        fetch('/api/projects/' + projectId + '/deploy-fartmart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        })
+            .then(function (resp) {
+                if (!resp.ok) return resp.json().then(function (d) { throw new Error(d.error || 'Deploy failed'); });
+                return resp.json();
+            })
+            .then(function () {
+                startDeployPolling(projectId);
+            })
+            .catch(function (err) {
+                console.error('Deploy failed:', err);
+                if (btn) {
+                    btn.textContent = 'Deploy Failed';
+                    btn.disabled = false;
+                    btn.classList.remove('deploying');
+                    btn.classList.add('deploy-error');
+                }
+            });
+    }
+
+    function startDeployPolling(projectId) {
+        stopDeployPolling(projectId);
+        pollDeployStatus(projectId);
+        deployPollTimers[projectId] = setInterval(function () {
+            pollDeployStatus(projectId);
+        }, 5000);
+    }
+
+    function stopDeployPolling(projectId) {
+        if (deployPollTimers[projectId]) {
+            clearInterval(deployPollTimers[projectId]);
+            delete deployPollTimers[projectId];
+        }
+    }
+
+    function pollDeployStatus(projectId) {
+        fetch('/api/projects/' + projectId + '/deploy-status')
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                var btn = document.querySelector('.deploy-btn[data-id="' + projectId + '"]');
+                if (!btn) {
+                    stopDeployPolling(projectId);
+                    return;
+                }
+                if (data.status === 'deployed') {
+                    stopDeployPolling(projectId);
+                    btn.textContent = 'Deployed';
+                    btn.disabled = true;
+                    btn.classList.remove('deploying');
+                    btn.classList.add('deployed');
+                } else if (data.status === 'error') {
+                    stopDeployPolling(projectId);
+                    btn.textContent = 'Deploy Failed';
+                    btn.disabled = false;
+                    btn.classList.remove('deploying');
+                    btn.classList.add('deploy-error');
+                    btn.title = data.error || 'Unknown error';
+                }
+                // If still deploying, keep polling
+            })
+            .catch(function () {
+                // Network error, keep polling
+            });
     }
 
     // ===================================
