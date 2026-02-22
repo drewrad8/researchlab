@@ -139,6 +139,8 @@ function matchRoute(method, url) {
       return { handler: 'getGraph', id };
     } else if (sub === 'events' && method === 'GET') {
       return { handler: 'sse', id };
+    } else if (sub === 'resume' && method === 'POST') {
+      return { handler: 'resumeProject', id };
     }
   }
 
@@ -215,6 +217,30 @@ async function handleRequest(req, res) {
             });
         }
         sendJSON(res, 201, project);
+        break;
+      }
+
+      case 'resumeProject': {
+        const body = await readBody(req);
+        if (!body || !body.fromPhase) {
+          sendJSON(res, 400, { error: 'missing fromPhase' });
+          return;
+        }
+        const project = store.get(route.id);
+        if (!project) { send404(res); return; }
+        // Kick off pipeline resume (fire-and-forget with proper error handling)
+        if (pipeline && typeof pipeline.resume === 'function') {
+          pipeline.resume(project, body.fromPhase, (event, data) => emitEvent(project.id, event, data))
+            .catch((e) => {
+              console.error(`[pipeline resume error] project=${project.id}: ${e.message}`);
+              emitEvent(project.id, 'error_event', {
+                status: 'error',
+                projectId: project.id,
+                error: e.message,
+              });
+            });
+        }
+        sendJSON(res, 200, { ok: true, projectId: project.id, resumingFrom: body.fromPhase });
         break;
       }
 

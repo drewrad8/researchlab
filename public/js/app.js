@@ -94,6 +94,17 @@
                 html += '<button class="project-action" data-action="progress" data-id="' + escapeAttr(p.id) + '">Monitor</button>';
             }
             html += '<button class="project-action" data-action="delete" data-id="' + escapeAttr(p.id) + '">Delete</button>';
+            // Resume control for error, complete, or any pipeline phase status
+            var resumableStatuses = ['error', 'complete', 'protocol', 'planning', 'classifying', 'pre-screening', 'investigating', 'adjudicating', 'synthesizing'];
+            if (resumableStatuses.indexOf(p.status) !== -1) {
+                html += ' <select class="resume-phase-select" data-id="' + escapeAttr(p.id) + '">';
+                var phases = ['protocol', 'planning', 'classifying', 'investigating', 'adjudicating', 'synthesizing'];
+                phases.forEach(function (ph) {
+                    html += '<option value="' + ph + '">' + ph + '</option>';
+                });
+                html += '</select>';
+                html += '<button class="project-action resume-btn" data-action="resume" data-id="' + escapeAttr(p.id) + '">Resume</button>';
+            }
             html += '</td>';
             html += '</tr>';
         });
@@ -116,6 +127,25 @@
             loadGraph(projectId);
         } else if (action === 'progress') {
             openProgress(projectId);
+        } else if (action === 'resume') {
+            var select = document.querySelector('.resume-phase-select[data-id="' + projectId + '"]');
+            var fromPhase = select ? select.value : 'protocol';
+            fetch('/api/projects/' + projectId + '/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fromPhase: fromPhase })
+            })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('Failed to resume');
+                    return resp.json();
+                })
+                .then(function () {
+                    openProgress(projectId);
+                })
+                .catch(function (err) {
+                    console.error('Resume failed:', err);
+                    alert('Failed to resume project: ' + err.message);
+                });
         } else if (action === 'delete') {
             if (confirm('Delete this project?')) {
                 fetch('/api/projects/' + projectId, { method: 'DELETE' })
