@@ -465,38 +465,34 @@ async function handleRequest(req, res) {
         fs.writeFileSync(SUGGESTIONS_FILE, JSON.stringify(statusMarker, null, 2));
 
         // Build task description for the Strategos worker
-        const graphSummaryText = graphSummaries.map(g => {
-          const nodeList = g.nodes.map(n =>
-            '  - [' + n.type + '] ' + n.label + (n.summary ? ': ' + n.summary.slice(0, 120) : '')
-          ).join('\n');
-          return 'PROJECT: ' + g.topic + ' (' + g.nodeCount + ' nodes, status: ' + g.status + ')\n' + nodeList;
-        }).join('\n\n');
+        const sanitize = s => (s || '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ').replace(/[\r\n\t]/g, ' ').replace(/ +/g, ' ').trim();
+        // Budget: keep total task description under 9500 chars for Strategos 10K limit
+        const preambleLen = 600; // rough estimate for the static text below
+        const budgetPerProject = Math.max(400, Math.floor((9500 - preambleLen) / Math.max(graphSummaries.length, 1)));
 
-        const taskDesc = [
-          'You are a cross-domain research analyst. Below are knowledge graph summaries from multiple completed research projects.',
-          'Your task: analyze ALL projects together and identify:',
-          '1. CROSS-DOMAIN CONNECTIONS: Surprising links between findings in different projects (e.g., shared mechanisms, overlapping contaminants, related health effects across domains)',
-          '2. KNOWLEDGE GAPS: Important questions that span multiple projects but remain unanswered',
-          '3. CONTRADICTIONS: Findings in one project that conflict with findings in another',
-          '4. NOVEL RESEARCH TOPICS: New research questions that combine findings from multiple projects in ways not yet explored',
-          '',
-          'OUTPUT FORMAT: Write valid JSON to ' + SUGGESTIONS_FILE,
-          'The JSON must have this structure:',
-          '{"status":"complete","completedAt":"<ISO date>","suggestions":[',
-          '  {"title":"<short title>","type":"cross-connection|gap|contradiction|novel-topic","rationale":"<2-3 sentence explanation>","relatedProjects":["<topic1>","<topic2>"],"suggestedTopic":"<a specific research question to investigate>"}',
-          ']}',
-          '',
-          'Generate 5-10 high-quality suggestions. Be specific and cite which project findings connect.',
-          '',
-          '--- PROJECT KNOWLEDGE GRAPHS ---',
-          graphSummaryText
-        ].join('\n');
+        const graphSummaryText = graphSummaries.map(g => {
+          const topicClean = sanitize(g.topic);
+          const topicShort = topicClean.length > 120 ? topicClean.slice(0, 120) + '...' : topicClean;
+          let header = 'PROJECT: ' + topicShort + ' (' + g.nodeCount + ' nodes). ';
+          let nodeList = 'Key nodes: ';
+          const maxNodes = Math.min(g.nodes.length, 12);
+          const items = [];
+          for (let i = 0; i < maxNodes; i++) {
+            const n = g.nodes[i];
+            const item = sanitize(n.label);
+            if (header.length + nodeList.length + items.join(', ').length + item.length + 4 > budgetPerProject) break;
+            items.push(item);
+          }
+          return header + nodeList + items.join(', ') + '.';
+        }).join(' | ');
+
+        const taskDesc = 'Cross-domain research analyst task. Analyze these project knowledge graphs and identify: (1) CROSS-CONNECTIONS between projects (2) KNOWLEDGE GAPS (3) CONTRADICTIONS (4) NOVEL TOPICS. Write valid JSON to ' + SUGGESTIONS_FILE + ' with structure: {"status":"complete","completedAt":"<ISO>","suggestions":[{"title":"...","type":"cross-connection|gap|contradiction|novel-topic","rationale":"...","relatedProjects":["..."],"suggestedTopic":"..."}]}. Generate 5-10 specific suggestions citing project findings. --- PROJECTS --- ' + graphSummaryText;
 
         // Spawn worker (fire-and-forget)
         strategos.spawn(
           'research',
           'RESEARCH: cross-project analysis and research suggestions',
-          path.join(process.env.HOME || process.env.USERPROFILE, '.researchlab'),
+          __dirname,
           null,
           taskDesc
         ).catch(err => {

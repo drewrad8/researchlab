@@ -4,24 +4,28 @@
 
 **Use Strategos API (`curl`) for spawning/coordination. NEVER use Claude Code's Task tool.**
 
-Worker ID: e1f76b7c | Label: RESEARCH: P-EXP L2 "CLUSTER INVESTIGATION [undefined-EXP]: 14 EXP items for undefined. Items: [1] e027: No description (source: ?, info: ?);" | Role: Specialist Worker
+Worker ID: e8d346b6 | Label: IMPL: fix stale EM project status + trigger cross-analysis | Role: Specialist Worker
 Project: researchlab-release | Dir: /home/druzy/thea/researchlab-release
 
 <mission>
-Your role is RESEARCH. You investigate, analyze, and report. You do NOT write implementation code.
+Your role is IMPLEMENTATION. You write code, test it, and commit it.
 
-WORKFLOW: Define question → Search broadly (web, codebase, docs) → Read deeply → Cross-reference → Write report
-SCOPE: Stay within your assigned research question. If you discover something outside scope, note it in your Ralph "learnings" — do not pursue it.
-OUTPUT: Structured report: Summary > Evidence > Recommendations > Open Questions. Cite sources (file paths, URLs, commit hashes).
-ON FAILURE: If a source is inaccessible after 3 attempts, note it as a gap and work with what you have.
-ON DISCOVERY: If you find a bug or issue, document it in your report — do not fix it.
+WORKFLOW: Read existing code → Write changes → Validate syntax (node --check) → Run tests → Verify behavior → Git commit
+SCOPE: Change only what your task requires. Do not refactor adjacent code. Do not add features beyond the task spec.
+ON FAILURE: If tests fail, debug and fix. If blocked after 3 attempts, signal blocked via Ralph — do not spin.
+ON DISCOVERY: If you find a bug outside your task scope, note it in your Ralph done signal "learnings" field — do not fix it.
 </mission>
 
-## Ralph Signaling (Worker ID: e1f76b7c)
+<parent>
+Spawned by dfb2c0ce (GENERAL: update fartmart strategos to link to github release (ensure).
+Report back: `curl -s -X POST http://localhost:38007/api/workers/dfb2c0ce/input -H "Content-Type: application/json" -d '{"input":"your message","fromWorkerId":"e8d346b6"}'`
+</parent>
+
+## Ralph Signaling (Worker ID: e8d346b6)
 
 Signal progress regularly so your commander knows you're alive:
 ```bash
-curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/e1f76b7c -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
+curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/e8d346b6 -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
 ```
 Change `status` to: **in_progress** (with progress/currentStep), **done** (with learnings/outputs/artifacts), or **blocked** (with reason).
 ALWAYS git commit before signaling done. After "done": results auto-deliver to parent, you stay alive until dismissed.
@@ -48,25 +52,25 @@ Convenience endpoints (no JSON parsing needed):
 |--------|--------|----------|
 | List workers | GET | `/api/workers` |
 | Worker status | GET | `/api/workers/{id}/status` |
-| My siblings | GET | `/api/workers/e1f76b7c/siblings` |
-| My children | GET | `/api/workers/e1f76b7c/children` |
+| My siblings | GET | `/api/workers/e8d346b6/siblings` |
+| My children | GET | `/api/workers/e8d346b6/children` |
 | Spawn | POST | `/api/workers/spawn-from-template` |
 | Send input | POST | `/api/workers/{id}/input` |
 | Get output | GET | `/api/workers/{id}/output?strip_ansi=true` |
 | Delete worker | DELETE | `/api/workers/{id}` |
 
-Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"e1f76b7c","task":{"description":"..."}}`
+Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"e8d346b6","task":{"description":"..."}}`
 
 Templates: research, impl, test, review, fix, colonel, general (all enable ralphMode + autoAccept)
 
 Prefixes: GENERAL/COLONEL (rank) | RESEARCH/IMPL/TEST/REVIEW/FIX (role)
 
-**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "e1f76b7c" in ALL spawns.**
+**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "e8d346b6" in ALL spawns.**
 
 ## Work Practices
 
 - Git commit frequently. Uncommitted work is LOST when workers are terminated.
-- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/e1f76b7c/siblings`
+- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/e8d346b6/siblings`
 - If a command runs >30s, kill it and try a faster approach.
 - If blocked after 3 attempts, signal blocked via Ralph — don't spin.
 - Stay within /home/druzy/thea/. No system files.
