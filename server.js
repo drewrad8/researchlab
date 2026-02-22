@@ -4,9 +4,15 @@ const path = require('path');
 const store = require('./lib/project-store');
 const sourcesLib = require('./lib/sources');
 const researchIndex = require('./lib/research-index');
+const strategos = require('./lib/strategos');
 
 const PORT = process.env.RESEARCHLAB_PORT || 3700;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const SUGGESTIONS_FILE = path.join(
+  process.env.HOME || process.env.USERPROFILE,
+  '.researchlab',
+  'suggestions.json'
+);
 
 // --- SSE client registry (keyed by project id) ---
 
@@ -161,6 +167,14 @@ function matchRoute(method, url) {
   }
   if (pathname === '/api/index/rebuild' && method === 'POST') {
     return { handler: 'rebuildIndex' };
+  }
+
+  // Suggestions API
+  if (pathname === '/api/suggest-research' && method === 'POST') {
+    return { handler: 'suggestResearch' };
+  }
+  if (pathname === '/api/suggestions' && method === 'GET') {
+    return { handler: 'getSuggestions' };
   }
 
   return null;
@@ -330,6 +344,97 @@ async function handleRequest(req, res) {
       case 'rebuildIndex': {
         const rebuilt = researchIndex.rebuild();
         sendJSON(res, 200, rebuilt);
+        break;
+      }
+
+      // --- Suggestions ---
+      case 'suggestResearch': {
+        // Load all completed project graphs
+        const allProjects = store.getAll();
+        const graphSummaries = [];
+        for (const p of allProjects) {
+          const graph = store.getGraph(p.id);
+          if (!graph || !graph.nodes) continue;
+          const nodes = graph.nodes.map(n => ({
+            label: n.label,
+            type: n.type,
+            summary: n.summary || ''
+          }));
+          graphSummaries.push({
+            topic: p.topic,
+            projectId: p.id,
+            status: p.status,
+            nodeCount: nodes.length,
+            nodes: nodes.slice(0, 60) // cap per-project to keep prompt manageable
+          });
+        }
+
+        if (graphSummaries.length < 1) {
+          sendJSON(res, 400, { error: 'Need at least 1 completed project with a graph to analyze.' });
+          break;
+        }
+
+        // Write a status marker so UI knows analysis is in progress
+        const statusMarker = { status: 'analyzing', startedAt: new Date().toISOString(), suggestions: [] };
+        fs.writeFileSync(SUGGESTIONS_FILE, JSON.stringify(statusMarker, null, 2));
+
+        // Build task description for the Strategos worker
+        const graphSummaryText = graphSummaries.map(g => {
+          const nodeList = g.nodes.map(n =>
+            '  - [' + n.type + '] ' + n.label + (n.summary ? ': ' + n.summary.slice(0, 120) : '')
+          ).join('\n');
+          return 'PROJECT: ' + g.topic + ' (' + g.nodeCount + ' nodes, status: ' + g.status + ')\n' + nodeList;
+        }).join('\n\n');
+
+        const taskDesc = [
+          'You are a cross-domain research analyst. Below are knowledge graph summaries from multiple completed research projects.',
+          'Your task: analyze ALL projects together and identify:',
+          '1. CROSS-DOMAIN CONNECTIONS: Surprising links between findings in different projects (e.g., shared mechanisms, overlapping contaminants, related health effects across domains)',
+          '2. KNOWLEDGE GAPS: Important questions that span multiple projects but remain unanswered',
+          '3. CONTRADICTIONS: Findings in one project that conflict with findings in another',
+          '4. NOVEL RESEARCH TOPICS: New research questions that combine findings from multiple projects in ways not yet explored',
+          '',
+          'OUTPUT FORMAT: Write valid JSON to ' + SUGGESTIONS_FILE,
+          'The JSON must have this structure:',
+          '{"status":"complete","completedAt":"<ISO date>","suggestions":[',
+          '  {"title":"<short title>","type":"cross-connection|gap|contradiction|novel-topic","rationale":"<2-3 sentence explanation>","relatedProjects":["<topic1>","<topic2>"],"suggestedTopic":"<a specific research question to investigate>"}',
+          ']}',
+          '',
+          'Generate 5-10 high-quality suggestions. Be specific and cite which project findings connect.',
+          '',
+          '--- PROJECT KNOWLEDGE GRAPHS ---',
+          graphSummaryText
+        ].join('\n');
+
+        // Spawn worker (fire-and-forget)
+        strategos.spawn(
+          'research',
+          'RESEARCH: cross-project analysis and research suggestions',
+          path.join(process.env.HOME || process.env.USERPROFILE, '.researchlab'),
+          null,
+          taskDesc
+        ).catch(err => {
+          console.error('[suggest-research] Failed to spawn Strategos worker:', err.message);
+          // Write error to suggestions file so UI can display it
+          const errResult = { status: 'error', error: err.message, completedAt: new Date().toISOString(), suggestions: [] };
+          try { fs.writeFileSync(SUGGESTIONS_FILE, JSON.stringify(errResult, null, 2)); } catch (_) {}
+        });
+
+        sendJSON(res, 200, { ok: true, status: 'analyzing' });
+        break;
+      }
+
+      case 'getSuggestions': {
+        if (!fs.existsSync(SUGGESTIONS_FILE)) {
+          sendJSON(res, 200, { status: 'none', suggestions: [] });
+          break;
+        }
+        try {
+          const data = JSON.parse(fs.readFileSync(SUGGESTIONS_FILE, 'utf8'));
+          sendJSON(res, 200, data);
+        } catch (_) {
+          sendJSON(res, 200, { status: 'none', suggestions: [] });
+        }
         break;
       }
 

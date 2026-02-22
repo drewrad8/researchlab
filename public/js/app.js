@@ -458,6 +458,146 @@
     }
 
     // ===================================
+    // CROSS-RESEARCH SUGGESTIONS
+    // ===================================
+
+    var suggestionsPollTimer = null;
+
+    function openSuggestionsModal() {
+        var modal = document.getElementById('suggestions-modal');
+        if (modal) modal.classList.add('visible');
+    }
+
+    function closeSuggestionsModal() {
+        var modal = document.getElementById('suggestions-modal');
+        if (modal) modal.classList.remove('visible');
+        stopSuggestionsPolling();
+    }
+
+    function triggerCrossAnalysis() {
+        var btn = document.getElementById('btn-discover-connections');
+        if (btn) btn.disabled = true;
+
+        // Reset the modal body to loading state
+        var body = document.getElementById('suggestions-body');
+        if (body) {
+            body.innerHTML = '<div class="suggestions-loading">' +
+                '<div class="suggestions-spinner"></div>' +
+                '<div class="suggestions-loading-text">ANALYZING KNOWLEDGE GRAPHS...</div>' +
+                '</div>';
+        }
+
+        openSuggestionsModal();
+
+        fetch('/api/suggest-research', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        })
+            .then(function (resp) {
+                if (!resp.ok) return resp.json().then(function (d) { throw new Error(d.error || 'Request failed'); });
+                return resp.json();
+            })
+            .then(function () {
+                startSuggestionsPolling();
+            })
+            .catch(function (err) {
+                var body = document.getElementById('suggestions-body');
+                if (body) {
+                    body.innerHTML = '<div class="suggestions-error">' + escapeHtml(err.message) + '</div>';
+                }
+                if (btn) btn.disabled = false;
+            });
+    }
+
+    function startSuggestionsPolling() {
+        stopSuggestionsPolling();
+        pollSuggestions();
+        suggestionsPollTimer = setInterval(pollSuggestions, 10000);
+    }
+
+    function stopSuggestionsPolling() {
+        if (suggestionsPollTimer) {
+            clearInterval(suggestionsPollTimer);
+            suggestionsPollTimer = null;
+        }
+    }
+
+    function pollSuggestions() {
+        fetch('/api/suggestions')
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (data.status === 'complete') {
+                    stopSuggestionsPolling();
+                    renderSuggestions(data.suggestions || []);
+                    var btn = document.getElementById('btn-discover-connections');
+                    if (btn) btn.disabled = false;
+                } else if (data.status === 'error') {
+                    stopSuggestionsPolling();
+                    var body = document.getElementById('suggestions-body');
+                    if (body) {
+                        body.innerHTML = '<div class="suggestions-error">Analysis failed: ' + escapeHtml(data.error || 'Unknown error') + '</div>';
+                    }
+                    var btn = document.getElementById('btn-discover-connections');
+                    if (btn) btn.disabled = false;
+                }
+                // If status is 'analyzing', keep polling (loading state already shown)
+            })
+            .catch(function () {
+                // Network error, keep polling
+            });
+    }
+
+    function renderSuggestions(suggestions) {
+        var body = document.getElementById('suggestions-body');
+        if (!body) return;
+
+        if (!suggestions || suggestions.length === 0) {
+            body.innerHTML = '<div class="suggestions-empty">NO CROSS-CONNECTIONS FOUND // NEED MORE COMPLETED RESEARCH</div>';
+            return;
+        }
+
+        var html = '';
+        suggestions.forEach(function (s) {
+            var typeClass = (s.type || 'novel-topic').replace(/\s+/g, '-');
+            html += '<div class="suggestion-card">';
+            html += '<div class="suggestion-header">';
+            html += '<span class="suggestion-title">' + escapeHtml(s.title || 'Untitled') + '</span>';
+            html += '<span class="suggestion-type ' + escapeAttr(typeClass) + '">' + escapeHtml(s.type || 'topic') + '</span>';
+            html += '</div>';
+            html += '<div class="suggestion-rationale">' + escapeHtml(s.rationale || '') + '</div>';
+            if (s.relatedProjects && s.relatedProjects.length > 0) {
+                html += '<div class="suggestion-projects">Related: ';
+                html += s.relatedProjects.map(function (p) { return '<span>' + escapeHtml(p) + '</span>'; }).join(', ');
+                html += '</div>';
+            }
+            if (s.suggestedTopic) {
+                html += '<button class="btn-research-this" data-topic="' + escapeAttr(s.suggestedTopic) + '">Research This</button>';
+            }
+            html += '</div>';
+        });
+
+        body.innerHTML = html;
+
+        // Bind "Research This" buttons
+        body.querySelectorAll('.btn-research-this').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var topic = btn.getAttribute('data-topic');
+                closeSuggestionsModal();
+                // Pre-fill the new project modal
+                var modal = document.getElementById('new-project-modal');
+                var input = document.getElementById('input-topic');
+                var budgetInput = document.getElementById('input-investigation-budget');
+                if (modal) {
+                    modal.classList.add('visible');
+                    if (input) { input.value = topic; input.focus(); }
+                    if (budgetInput) { budgetInput.value = '10'; }
+                }
+            });
+        });
+    }
+
+    // ===================================
     // NAVIGATION BINDINGS
     // ===================================
 
@@ -465,6 +605,10 @@
         // New project button
         var btnNew = document.getElementById('btn-new-project');
         if (btnNew) btnNew.addEventListener('click', openNewProjectModal);
+
+        // Discover connections button
+        var btnDiscover = document.getElementById('btn-discover-connections');
+        if (btnDiscover) btnDiscover.addEventListener('click', triggerCrossAnalysis);
 
         // Modal cancel
         var btnCancel = document.getElementById('btn-modal-cancel');
@@ -479,6 +623,17 @@
         if (overlay) {
             overlay.addEventListener('click', function (e) {
                 if (e.target === overlay) closeNewProjectModal();
+            });
+        }
+
+        // Suggestions modal close
+        var btnSuggestionsClose = document.getElementById('btn-suggestions-close');
+        if (btnSuggestionsClose) btnSuggestionsClose.addEventListener('click', closeSuggestionsModal);
+
+        var suggestionsOverlay = document.getElementById('suggestions-modal');
+        if (suggestionsOverlay) {
+            suggestionsOverlay.addEventListener('click', function (e) {
+                if (e.target === suggestionsOverlay) closeSuggestionsModal();
             });
         }
 

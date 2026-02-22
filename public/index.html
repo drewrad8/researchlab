@@ -508,6 +508,220 @@
            GRAPH SCREEN (inherits from research.css)
            =================================== */
         .graph-screen { position: relative; z-index: 1; }
+
+        /* ===================================
+           PROJECT HEADER ACTIONS
+           =================================== */
+        .project-header-actions {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+        }
+
+        /* ===================================
+           DISCOVER CONNECTIONS BUTTON
+           =================================== */
+        .btn-discover {
+            padding: 0.6rem 1.4rem;
+            background: rgba(74, 26, 94, 0.08);
+            border: 1px solid rgba(74, 26, 94, 0.4);
+            border-radius: 2px;
+            color: #9060c0;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-discover:hover {
+            background: rgba(74, 26, 94, 0.18);
+            border-color: rgba(112, 48, 160, 0.6);
+            box-shadow: 0 0 20px rgba(112, 48, 160, 0.12);
+            color: #b080e0;
+        }
+
+        .btn-discover:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ===================================
+           SUGGESTIONS MODAL
+           =================================== */
+        .suggestions-modal-content {
+            width: 640px;
+            max-width: 92vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .suggestions-body {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--dark-border) transparent;
+            margin-bottom: 1rem;
+            max-height: 55vh;
+        }
+
+        .suggestions-loading {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .suggestions-spinner {
+            width: 28px;
+            height: 28px;
+            border: 2px solid rgba(74, 26, 94, 0.3);
+            border-top-color: #9060c0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .suggestions-loading-text {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            letter-spacing: 2px;
+        }
+
+        .suggestion-card {
+            background: rgba(5, 5, 7, 0.6);
+            border: 1px solid var(--dark-border);
+            border-radius: 2px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.8rem;
+            transition: border-color 0.2s;
+        }
+
+        .suggestion-card:hover {
+            border-color: rgba(74, 26, 94, 0.5);
+        }
+
+        .suggestion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .suggestion-title {
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+        }
+
+        .suggestion-type {
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+            border-radius: 2px;
+            font-size: 0.55rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: var(--font-mono);
+            flex-shrink: 0;
+            margin-left: 0.6rem;
+        }
+
+        .suggestion-type.cross-connection {
+            background: rgba(10, 138, 138, 0.12);
+            color: var(--neon-cyan-bright);
+            border: 1px solid rgba(10, 138, 138, 0.3);
+        }
+
+        .suggestion-type.gap {
+            background: rgba(166, 124, 26, 0.12);
+            color: var(--forge-amber-bright);
+            border: 1px solid rgba(166, 124, 26, 0.3);
+        }
+
+        .suggestion-type.contradiction {
+            background: rgba(107, 26, 26, 0.15);
+            color: #d04040;
+            border: 1px solid rgba(107, 26, 26, 0.3);
+        }
+
+        .suggestion-type.novel-topic {
+            background: rgba(74, 26, 94, 0.15);
+            color: #b080e0;
+            border: 1px solid rgba(74, 26, 94, 0.3);
+        }
+
+        .suggestion-rationale {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 0.6rem;
+        }
+
+        .suggestion-projects {
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            margin-bottom: 0.6rem;
+        }
+
+        .suggestion-projects span {
+            color: var(--neon-cyan);
+        }
+
+        .btn-research-this {
+            padding: 0.3rem 0.8rem;
+            background: rgba(74, 26, 94, 0.1);
+            border: 1px solid rgba(74, 26, 94, 0.4);
+            border-radius: 2px;
+            color: #9060c0;
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-research-this:hover {
+            background: rgba(74, 26, 94, 0.2);
+            border-color: rgba(112, 48, 160, 0.6);
+            color: #b080e0;
+        }
+
+        .suggestions-error {
+            text-align: center;
+            padding: 2rem;
+            color: #d04040;
+            font-size: 0.8rem;
+        }
+
+        .suggestions-empty {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        .resume-phase-select {
+            padding: 0.2rem 0.4rem;
+            background: rgba(5, 5, 7, 0.8);
+            border: 1px solid var(--dark-border);
+            border-radius: 2px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            margin-left: 0.4rem;
+        }
     </style>
 </head>
 <body>
@@ -535,10 +749,29 @@
         <div class="container">
             <div class="project-header">
                 <h1 class="project-header-title">Active Projects</h1>
-                <button class="btn-new-project" id="btn-new-project">+ NEW</button>
+                <div class="project-header-actions">
+                    <button class="btn-discover" id="btn-discover-connections">&#9830; CROSS-ANALYSIS</button>
+                    <button class="btn-new-project" id="btn-new-project">+ NEW</button>
+                </div>
             </div>
             <div id="project-list-body">
                 <div class="empty-state">NO PROJECTS FOUND // INITIATE NEW RESEARCH</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suggestions Modal -->
+    <div class="modal-overlay" id="suggestions-modal">
+        <div class="modal suggestions-modal-content">
+            <h2 class="modal-title">&#9830; Cross-Research Analysis</h2>
+            <div id="suggestions-body" class="suggestions-body">
+                <div class="suggestions-loading">
+                    <div class="suggestions-spinner"></div>
+                    <div class="suggestions-loading-text">ANALYZING KNOWLEDGE GRAPHS...</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-cancel" id="btn-suggestions-close">Close</button>
             </div>
         </div>
     </div>
