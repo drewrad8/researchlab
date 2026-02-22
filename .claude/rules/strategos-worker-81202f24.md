@@ -4,7 +4,7 @@
 
 **Use Strategos API (`curl`) for spawning/coordination. NEVER use Claude Code's Task tool.**
 
-Worker ID: d978e15e | Label: RESEARCH: classify-2 "Electromagnetic (EM) and geomagnetic effects on the lymphatic system, cardiovascular system, neuropsychiatric health, and other physiological systems -- mechanisms, epidemiologic | Role: Specialist Worker
+Worker ID: 81202f24 | Label: RESEARCH: P-GOV L3 "CLUSTER INVESTIGATION [undefined-GOV]: 23 GOV items for undefined. Items: [1] e001: No description (source: ?, info: ?);" | Role: Specialist Worker
 Project: researchlab-release | Dir: /home/druzy/thea/researchlab-release
 
 <mission>
@@ -17,11 +17,11 @@ ON FAILURE: If a source is inaccessible after 3 attempts, note it as a gap and w
 ON DISCOVERY: If you find a bug or issue, document it in your report — do not fix it.
 </mission>
 
-## Ralph Signaling (Worker ID: d978e15e)
+## Ralph Signaling (Worker ID: 81202f24)
 
 Signal progress regularly so your commander knows you're alive:
 ```bash
-curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/d978e15e -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
+curl -s -X POST http://localhost:38007/api/ralph/signal/by-worker/81202f24 -H "Content-Type: application/json" -d '{"status":"in_progress","progress":50,"currentStep":"describing what you are doing now"}'
 ```
 Change `status` to: **in_progress** (with progress/currentStep), **done** (with learnings/outputs/artifacts), or **blocked** (with reason).
 ALWAYS git commit before signaling done. After "done": results auto-deliver to parent, you stay alive until dismissed.
@@ -48,25 +48,25 @@ Convenience endpoints (no JSON parsing needed):
 |--------|--------|----------|
 | List workers | GET | `/api/workers` |
 | Worker status | GET | `/api/workers/{id}/status` |
-| My siblings | GET | `/api/workers/d978e15e/siblings` |
-| My children | GET | `/api/workers/d978e15e/children` |
+| My siblings | GET | `/api/workers/81202f24/siblings` |
+| My children | GET | `/api/workers/81202f24/children` |
 | Spawn | POST | `/api/workers/spawn-from-template` |
 | Send input | POST | `/api/workers/{id}/input` |
 | Get output | GET | `/api/workers/{id}/output?strip_ansi=true` |
 | Delete worker | DELETE | `/api/workers/{id}` |
 
-Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"d978e15e","task":{"description":"..."}}`
+Spawn body: `{"template":"TYPE","label":"NAME","projectPath":"/home/druzy/thea/researchlab-release","parentWorkerId":"81202f24","task":{"description":"..."}}`
 
 Templates: research, impl, test, review, fix, colonel, general (all enable ralphMode + autoAccept)
 
 Prefixes: GENERAL/COLONEL (rank) | RESEARCH/IMPL/TEST/REVIEW/FIX (role)
 
-**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "d978e15e" in ALL spawns.**
+**Spawn >60s tasks. Check siblings first. Include parentWorkerId: "81202f24" in ALL spawns.**
 
 ## Work Practices
 
 - Git commit frequently. Uncommitted work is LOST when workers are terminated.
-- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/d978e15e/siblings`
+- Check running siblings before spawning: `curl -s http://localhost:38007/api/workers/81202f24/siblings`
 - If a command runs >30s, kill it and try a faster approach.
 - If blocked after 3 attempts, signal blocked via Ralph — don't spin.
 - Stay within /home/druzy/thea/. No system files.
