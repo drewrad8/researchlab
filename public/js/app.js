@@ -91,12 +91,20 @@
                 html += '<button class="project-action" data-action="graph" data-id="' + escapeAttr(p.id) + '">View Graph</button>';
                 html += '<button class="project-action deploy-btn" data-action="deploy" data-id="' + escapeAttr(p.id) + '">Deploy to Fartmart</button>';
             }
-            if (p.status !== 'complete' && p.status !== 'error') {
+            if (p.status !== 'complete' && p.status !== 'error' && p.status !== 'paused') {
                 html += '<button class="project-action" data-action="progress" data-id="' + escapeAttr(p.id) + '">Monitor</button>';
             }
+            // Pause/Unpause button for running or paused projects
+            var runningStatuses = ['protocol', 'planning', 'classifying', 'pre-screening', 'investigating', 'adjudicating', 'synthesizing'];
+            if (runningStatuses.indexOf(p.status) !== -1) {
+                html += '<button class="project-action pause-btn" data-action="pause" data-id="' + escapeAttr(p.id) + '">Pause</button>';
+            }
+            if (p.status === 'paused') {
+                html += '<button class="project-action unpause-btn" data-action="unpause" data-id="' + escapeAttr(p.id) + '">Unpause</button>';
+            }
             html += '<button class="project-action" data-action="delete" data-id="' + escapeAttr(p.id) + '">Delete</button>';
-            // Resume control for error, complete, or any pipeline phase status
-            var resumableStatuses = ['error', 'complete', 'protocol', 'planning', 'classifying', 'pre-screening', 'investigating', 'adjudicating', 'synthesizing'];
+            // Resume control for error, complete, paused, or any pipeline phase status
+            var resumableStatuses = ['error', 'complete', 'paused', 'protocol', 'planning', 'classifying', 'pre-screening', 'investigating', 'adjudicating', 'synthesizing'];
             if (resumableStatuses.indexOf(p.status) !== -1) {
                 html += ' <select class="resume-phase-select" data-id="' + escapeAttr(p.id) + '">';
                 var phases = ['protocol', 'planning', 'classifying', 'investigating', 'adjudicating', 'synthesizing'];
@@ -131,7 +139,29 @@
     }
 
     function handleProjectAction(action, projectId) {
-        if (action === 'graph') {
+        if (action === 'pause') {
+            fetch('/api/projects/' + projectId + '/pause', { method: 'POST' })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('Failed to pause');
+                    return resp.json();
+                })
+                .then(function () { fetchProjects(); })
+                .catch(function (err) {
+                    console.error('Pause failed:', err);
+                    alert('Failed to pause project: ' + err.message);
+                });
+        } else if (action === 'unpause') {
+            fetch('/api/projects/' + projectId + '/unpause', { method: 'POST' })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('Failed to unpause');
+                    return resp.json();
+                })
+                .then(function () { fetchProjects(); })
+                .catch(function (err) {
+                    console.error('Unpause failed:', err);
+                    alert('Failed to unpause project: ' + err.message);
+                });
+        } else if (action === 'graph') {
             loadGraph(projectId);
         } else if (action === 'progress') {
             openProgress(projectId);

@@ -148,6 +148,10 @@ function matchRoute(method, url) {
       return { handler: 'getGraph', id };
     } else if (sub === 'events' && method === 'GET') {
       return { handler: 'sse', id };
+    } else if (sub === 'pause' && method === 'POST') {
+      return { handler: 'pauseProject', id };
+    } else if (sub === 'unpause' && method === 'POST') {
+      return { handler: 'unpauseProject', id };
     } else if (sub === 'resume' && method === 'POST') {
       return { handler: 'resumeProject', id };
     } else if (sub === 'deploy-fartmart' && method === 'POST') {
@@ -262,6 +266,34 @@ async function handleRequest(req, res) {
             });
         }
         sendJSON(res, 200, { ok: true, projectId: project.id, resumingFrom: body.fromPhase });
+        break;
+      }
+
+      case 'pauseProject': {
+        const project = store.get(route.id);
+        if (!project) { send404(res); return; }
+        store.pause(route.id);
+        // Kill running Strategos workers for this project (best-effort)
+        strategos.listWorkers('running').then(function (workers) {
+          for (const w of workers) {
+            const wProject = w.projectPath || w.project || '';
+            const wLabel = w.label || '';
+            if (wProject.includes(route.id) || wLabel.includes(project.topic?.slice(0, 40))) {
+              strategos.deleteWorker(w.id).catch(function () {});
+            }
+          }
+        }).catch(function () {});
+        emitEvent(route.id, 'phase', { phase: 'paused', status: 'paused' });
+        sendJSON(res, 200, { ok: true, paused: true });
+        break;
+      }
+
+      case 'unpauseProject': {
+        const project = store.get(route.id);
+        if (!project) { send404(res); return; }
+        store.unpause(route.id);
+        emitEvent(route.id, 'phase', { phase: 'unpaused', status: 'unpaused' });
+        sendJSON(res, 200, { ok: true, paused: false });
         break;
       }
 
