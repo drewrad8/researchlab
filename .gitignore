@@ -44,3 +44,16 @@ test-results/
 # Temp
 .tmp/
 tmp/
+
+# Additional gitignore entries
+venv/
+.venv/
+__pycache__/
+*.db-wal
+*.db-shm
+dist/
+build/
+.pytest_cache/
+Intermediate/
+target/
+playwright-report/
